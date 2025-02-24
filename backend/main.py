@@ -4,7 +4,7 @@ from pydantic import BaseModel
 import logging
 import uvicorn
 
-from .chatbot.chat_handler import handle_chat
+from chatbot.chat_handler import handle_chat
 
 # 创建 FastAPI 应用实例
 app = FastAPI()

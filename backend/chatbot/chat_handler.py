@@ -1,6 +1,6 @@
 import os
 import openai
-from ..config import Config
+from config import Config
 
 # 设置 OpenAI API 密钥
 api_key = Config.OPENAI_API_KEY
