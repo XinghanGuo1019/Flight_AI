@@ -1,29 +1,52 @@
-from chatbot.response_generator import generate_response
-from api.flight_api import search_flights, change_flight
-from api.identity_api import verify_identity
-from utils.helpers import extract_ticket_number, extract_id_number, extract_birthday, extract_flight_details
+import os
+import openai
+from ..config import Config
 
-def handle_chat(user_message):
-    if "change flight" in user_message.lower():
-        return "Please provide your ticket number, ID number, and birthday."
-    elif "ticket number" in user_message.lower():
-        ticket_number = extract_ticket_number(user_message)
-        id_number = extract_id_number(user_message)
-        birthday = extract_birthday(user_message)
-        if verify_identity(ticket_number, id_number, birthday):
-            return "Identity verified. Please provide the new flight details."
-        else:
-            return "Identity verification failed. Please try again."
-    elif "new flight" in user_message.lower():
-        new_flight_details = extract_flight_details(user_message)
-        if search_flights(new_flight_details['flight_number'], new_flight_details['date']):
-            return "New flight found. Please confirm the change."
-        else:
-            return "No available flights found. Please try another date."
-    elif "confirm" in user_message.lower():
-        if change_flight(ticket_number, new_flight_details):
-            return "Flight change successful!"
-        else:
-            return "Flight change failed. Please contact customer support."
-    else:
-        return generate_response(user_message)
+# 设置 OpenAI API 密钥
+api_key = Config.OPENAI_API_KEY
+
+# 初始化 OpenAI 客户端
+client = openai.Client(api_key=api_key)
+
+# 初始化聊天历史记录
+chat_history = []
+
+# 定义聊天处理函数
+async def handle_chat(user_message: str) -> str:
+    # 将用户消息添加到聊天历史
+    chat_history.append({"role": "user", "content": user_message})
+
+    # 限制聊天历史记录最多包含10条消息
+    if len(chat_history) > 10:
+        chat_history.pop(0)
+
+    # 定义系统提示
+    system_prompt = (
+        "Imagine you are an agent, aka, customer service working for a flight ticket distribution company. "
+        "You will take your chat history with the customer as input and respond to customer needs accordingly. "
+        "You only reply to flight ticket related questions; for irrelevant questions, you politely refuse to answer. "
+        "You need to answer all questions in the language the customer uses."
+    )
+
+    # 将系统提示添加到聊天历史
+    messages = [{"role": "system", "content": system_prompt}] + chat_history
+
+    # 调用 OpenAI API 获取回复
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=messages,
+            max_tokens=150,
+            n=1,
+            stop=None,
+            temperature=0.5,
+        )
+        assistant_message = response.choices[0].message.content.strip()
+
+        # 将助手的回复添加到聊天历史
+        chat_history.append({"role": "assistant", "content": assistant_message})
+
+        return assistant_message
+    except Exception as e:
+        # 处理 API 调用中的异常
+        raise RuntimeError(f"调用 OpenAI API 时出错: {str(e)}")

@@ -4,6 +4,8 @@ from pydantic import BaseModel
 import logging
 import uvicorn
 
+from .chatbot.chat_handler import handle_chat
+
 # 创建 FastAPI 应用实例
 app = FastAPI()
 
@@ -23,12 +25,6 @@ logger = logging.getLogger("chatbot")
 # 定义请求模型
 class ChatRequest(BaseModel):
     message: str
-
-# 模拟的聊天处理函数
-async def handle_chat(user_message: str) -> str:
-    # 在这里实现与 GPT-3.5-turbo 的交互逻辑
-    # 目前返回一个简单的响应作为示例
-    return f"您说的是: {user_message}"
 
 # 定义聊天接口
 @app.post("/chat")
