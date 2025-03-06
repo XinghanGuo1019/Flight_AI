@@ -4,10 +4,29 @@
   flex-direction: column;
   height: 100vh;
   font-family: Arial, sans-serif;
+  width: 60vw; /* 宽度占据视口宽度的60% */
+  margin: 0 auto; /* 水平居中 */
+}
+
+@media (max-width: 768px) {
+  .app {
+    width: 80vw; /* 在较小屏幕上占据80%的宽度 */
+  }
+}
+
+@media (max-width: 480px) {
+  .app {
+    width: 100vw; /* 在更小的屏幕上占据100%的宽度 */
+  }
 }
 
 h1 {
-  text-align: center;
+  font-family: "Proxima Nova", sans-serif;
+  font-size: 2.5rem; /* 根据需要调整字体大小 */
+  font-weight: bold;
+  color: #333; /* 根据需要调整颜色 */
+  text-align: center; /* 居中显示 */
+  margin-top: 20px; /* 根据需要调整间距 */
 }
 
 .chat-box {

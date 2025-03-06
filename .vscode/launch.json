@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug FastAPI",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "env": {
+        "OPENAI_API_KEY": "WKcBSOoD_j2XNT3BlbkFJRu63or8W9NboO9RgzOS2Y4hjWJIjarDGfzgxmQoiCbfc7tmbxSkoCEM0sx9l59rjxspxq62w4A" // 或确保环境变量已设置
+      }
+    }
+  ]
+}

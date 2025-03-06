@@ -1,32 +1,39 @@
-// src/components/MessageInput.tsx
-import React, { useState } from "react";
-import "../style.css";
+import React from "react";
+import { useState } from "react";
 
 interface MessageInputProps {
   onSend: (message: string) => void;
+  disabled: boolean;
+  placeholder: string;
 }
 
-const MessageInput: React.FC<MessageInputProps> = ({ onSend }) => {
+export const MessageInput: React.FC<MessageInputProps> = ({
+  onSend,
+  disabled,
+  placeholder,
+}) => {
   const [message, setMessage] = useState("");
 
-  const handleSend = () => {
-    if (message.trim()) {
-      onSend(message);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!disabled && message.trim()) {
+      onSend(message.trim());
       setMessage("");
     }
   };
 
   return (
-    <div className="message-input">
+    <form className="message-input" onSubmit={handleSubmit}>
       <input
         type="text"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type your message here..."
+        placeholder={placeholder}
+        disabled={disabled}
       />
-      <button onClick={handleSend}>Send</button>
-    </div>
+      <button type="submit" disabled={disabled}>
+        {disabled ? "发送中..." : "发送"}
+      </button>
+    </form>
   );
 };
-
-export default MessageInput;
