@@ -25,8 +25,9 @@ def query_deepseek(question, context):
     # Format the input prompt
     formatted_prompt = f"Question: {question}\n\nContext: {context}"
     # Query DeepSeek-R1 using Ollama
-    response = embed_func.chat(
-        model="deepseek-r1:7b",
+    ollama_cli = ollama.Client(host='127.0.0.1:11434')
+    response = ollama_cli.chat(
+        model="deepseek-r1:1.5b",
         messages=[{'role': 'user', 'content': formatted_prompt}]
     )
     # Clean and return the response
