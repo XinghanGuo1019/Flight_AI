@@ -12,27 +12,35 @@ logger = logging.getLogger(__name__)
 class IntentDetectionNode:
     def __init__(self, llm):
         prompt = PromptTemplate.from_template(
-            """Imagine you are an agent, aka, customer service working for a flight ticket distribution company.\n"
-    "You will take your chat history with the customer as input and respond to customer needs accordingly.\n"
-    "You only reply to flight ticket related questions; for irrelevant questions, you politely refuse to answer.\n"
-    "You need to answer all questions in the language the customer uses.\n\n"
-            1. 分析用户对话历史，识别意图：flight_change（航班变更） 或 other（其他）
-2. 若意图为 flight_change，必须返回以下JSON：
+            """**Flight Service Agent Protocol**
+    
+As a flight ticketing specialist, analyze the conversation history and:
+
+1. **Intent Identification**:
+   - Recognize if the user wants to modify existing flight plans (flight_change)
+   - Identify general flight-related questions (other)
+
+2. **Response Generation**:
+A) For flight_change intent:
+   - List SPECIFIC missing fields from: [ticket_number, passenger_birthday, departure_date, return_date, adult_passengers]
+   - Generate NATURAL request for missing info using conversation context
+
+B) For other intents:
+   - Create helpful response about flight services
+   - Politely decline non-flight related requests
+
+**Strict JSON Response Format**
+```json
 {{
-    "intent": "flight_change",
-    "missing_info": ["出发日期", "航班号"],  # 需要用户补充的信息
-    "content": "已识别到航班变更需求，需要补充以下信息：出发日期、航班号"  # 系统提示内容
-}}
-3. 若为其他意图，返回：
-{{
-    "intent": "other",
-    "content": "通用回复内容"  # 由LLM生成的正常对话回复
+    "intent": "flight_change" | "other",
+    "missing_info": ["field1", "field2"],  // Use exact field names
+    "content": "generated response text"  
 }}
 
-对话历史：
+**Conversation History**
 {messages}
 
-请返回严格符合上述要求的JSON："""
+**Current Response** (STRICT JSON ONLY):"""
         )
         self.chain = prompt | llm | RunnableLambda(self._parse_output)
 

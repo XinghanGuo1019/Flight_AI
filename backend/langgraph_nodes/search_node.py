@@ -12,36 +12,64 @@ settings = Settings()
 api_key = settings.openai_api_key
 llm = OpenAI(api_key=api_key)
 
-url_template = (
-    "根据以下对话记录，假设用户已经提供了所有必要信息（出发地、目的地、出发日期、返程日期、舱位等级、乘客人数），"
-    "请生成符合格式的 Skyscanner 机票搜索 URL，格式为：\n"
-    "https://www.skyscanner.de/transport/flights/{departure_code}/{destination_code}/{departure_date}/{return_date}/?adults={adult_count}&adultsv2={adult_count}&cabinclass={cabin_class}&children={children_count}&childrenv2={children_age}&inboundaltsenabled=false&infants=0&outboundaltsenabled=false&preferdirects=true&ref=home&rtn=1\n"
-    "如果信息不全，请返回空字符串。\n"
-    "对话记录：{chat_history}"
-)
-url_prompt = PromptTemplate(
-    input_variables=["chat_history"],
-    template=url_template
-)
-
 class SearchNode:
     def __init__(self, llm):
         self.llm = llm
-        self.url_chain = url_prompt | llm
+        url_template = """
+        请根据以下已收集的信息，生成一个有效的机票搜索URL：
+        
+        出发地: {departure_airport}
+        目的地: {arrival_airport}
+        出发日期: {departure_date}
+        返程日期: {return_date}
+        成人乘客数: {adult_passengers}
+        
+        使用以下格式生成URL:
+        https://www.skyscanner.de/transport/flights/{departure_code}/{destination_code}/{departure_date}/{return_date}/?adults={adult_count}&cabinclass=economy
+        
+        日期格式应为YYMMDD。
+        仅返回生成的URL，不要添加任何说明或解释。
+        """
+        self.url_prompt = PromptTemplate.from_template(url_template)
+        self.url_chain = self.url_prompt | llm
     
     async def process(self, state: dict) -> dict:
         logger.debug(f"Input state: {state}")
-        chat_history = state.get("chat_history", "")
-        human_message = HumanMessage(content=chat_history)
-        url = await self.url_chain.ainvoke(human_message)
-        url = url.strip()
-        logger.info(f"生成 URL: {url}")
-        # 将生成的 URL 作为新的消息附加到状态中
-        new_message = {
-            "content": "Flight URL generated",
-            "sender": "system",
-            "flight_url": url
-        }.to_dict()
-        logger.debug(f"Output message: {new_message}")
-        state["messages"].append(new_message)
-        return state
+        # 创建新状态副本
+        new_state = state.model_copy()
+        
+        # 准备URL生成所需信息
+        collected_info = new_state.collected_info
+        
+        # 检查是否有所有必要的信息
+        required_fields = ["departure_airport", "arrival_airport", "departure_date"]
+        for field in required_fields:
+            if field not in collected_info:
+                new_state.messages.append({
+                    "content": f"缺少必要信息：{field}",
+                    "sender": "system"
+                })
+                return new_state.dict()
+        
+        # 处理日期格式转换等逻辑
+        # ...
+        
+        # 生成URL
+        url_input = {
+            "departure_airport": collected_info.get("departure_airport"),
+            "arrival_airport": collected_info.get("arrival_airport"),
+            "departure_date": collected_info.get("departure_date"),
+            "return_date": collected_info.get("return_date", ""),
+            "adult_passengers": collected_info.get("adult_passengers", 1)
+        }
+        
+        url = await self.url_chain.ainvoke(url_input)
+        
+        # 添加URL到消息中
+        new_state.messages.append({
+            "content": "已为您找到以下航班选项，请点击链接查看：",
+            "sender": "system", 
+            "flight_url": url.strip()
+        })
+        
+        return new_state.dict()

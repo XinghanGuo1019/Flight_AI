@@ -1,3 +1,4 @@
+#schemas.py
 from datetime import date
 from typing import Any, Dict, List, Optional, TypedDict, Union
 from uuid import uuid4
@@ -84,3 +85,19 @@ class MessageState(BaseModel):
         default_factory=list,
         description="缺失的信息字段列表"
     )
+    def model_copy(self, **kwargs):
+        """创建当前对象的副本"""
+        return MessageState(
+            messages=self.messages.copy(),
+            collected_info=self.collected_info.copy(),
+            missing_info=self.missing_info.copy(),
+            **kwargs
+        )
+    
+    def dict(self):
+        """返回字典表示"""
+        return {
+            "messages": self.messages,
+            "collected_info": self.collected_info,
+            "missing_info": self.missing_info
+        }

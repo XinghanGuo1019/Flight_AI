@@ -30,14 +30,6 @@ class InfoCollectionNode:
         }}
         """)
         
-        # 通用字段提示模板
-        self.field_prompts = {
-            "ticket_number": "请输入机票票号（格式：ABC12345678）",
-            "passenger_dob": "请提供出生日期（dd.mm.yyyy）",
-            "departure_date": "请输入出发日期（dd.mm.yyyy）",
-            "return_date": "需要返程日期吗？（输入日期或'无'）",
-            "adult_passengers": "请输入成人乘客人数（1-9）"
-        }
         
         # 字段验证规则
         self.validation_rules = {
@@ -77,33 +69,96 @@ class InfoCollectionNode:
             return {"error": "无法解析机场信息"}
 
     async def process(self, state: MessageState) -> Dict[str, Any]:
-        current_field = state.missing_info[0] if state.missing_info else None
+        """处理信息收集节点"""
+        # 创建新状态的副本，避免修改原始状态
+        new_state = state.model_copy()
         
-        # 生成询问提示
-        if not state.get("active_question"):
-            question = self._generate_question(current_field)
-            return {
-                "messages": [{"content": question, "sender": "system"}],
-                "missing_info": state.missing_info,
-                "active_question": current_field
-            }
+        # 检查是否还有缺失信息需要收集
+        if not new_state.missing_info:
+            # 所有信息已收集，生成完成消息
+            new_state.messages.append({
+                "content": "已收集所有必要信息，即将为您搜索航班。",
+                "sender": "system"
+            })
+            return new_state.dict()
+            
+        # 获取当前需要收集的字段
+        current_field = new_state.missing_info[0]
         
-        # 处理用户回答
-        user_input = state.messages[-1].content
-        validation_result = self._validate_field(current_field, user_input)
-        
-        if validation_result["valid"]:
-            return {
-                "collected_info": {**state.collected_info, **validation_result["data"]},
-                "missing_info": state.missing_info[1:],
-                "active_question": None
-            }
-        else:
-            return {
-                "messages": [{"content": validation_result["error"], "sender": "system"}],
-                "missing_info": state.missing_info,
-                "active_question": current_field
-            }
+        # 检查是否是用户回复
+        if len(new_state.messages) > 1 and new_state.messages[-1]["sender"] == "user":
+            # 处理用户输入
+            user_input = new_state.messages[-1]["content"]
+            
+            # 根据字段类型进行不同处理
+            if current_field in ["departure_airport", "arrival_airport"]:
+                # 机场代码处理逻辑
+                result = await self._process_airport_field(user_input, current_field)
+            else:
+                # 一般字段处理逻辑
+                result = self._process_general_field(user_input, current_field)
+                
+            if result["valid"]:
+                # 更新已收集信息
+                new_state.collected_info[current_field] = result["value"]
+                # 移除已收集的字段
+                new_state.missing_info.pop(0)
+                # 添加确认消息
+                new_state.messages.append({
+                    "content": f"已记录您的{self._get_field_display_name(current_field)}: {result['value']}",
+                    "sender": "system"
+                })
+                
+                # 检查是否所有信息已收集
+                if not new_state.missing_info:
+                    new_state.messages.append({
+                        "content": "已收集所有必要信息，即将为您搜索航班。",
+                        "sender": "system"
+                    })
+                    return new_state.dict()
+            else:
+                # 处理无效输入
+                new_state.messages.append({
+                    "content": result["error"],
+                    "sender": "system"
+                })
+                return new_state.dict()
+                
+        # 生成下一个字段的提示
+        if new_state.missing_info:
+            prompt = self._generate_field_prompt(new_state.missing_info[0])
+            new_state.messages.append({
+                "content": prompt,
+                "sender": "system"
+            })
+            
+        return new_state.dict()
+    
+    def _generate_field_prompt(self, field: str) -> str:
+        """生成字段提示信息"""
+        field_prompts = {
+            "ticket_number": "请输入您的机票票号（格式如：ABC1234567890）：",
+            "passenger_dob": "请提供乘客出生日期（格式：DD.MM.YYYY）：",
+            "departure_airport": "请输入出发机场（城市名或三字码）：",
+            "arrival_airport": "请输入目的地机场（城市名或三字码）：",
+            "departure_date": "请输入出发日期（格式：DD.MM.YYYY）：",
+            "return_date": "请输入返程日期（格式：DD.MM.YYYY，如无返程请输入'无'）：",  # 修正此处
+            "adult_passengers": "请输入成人乘客人数（1-9）："
+        }
+        return field_prompts.get(field, f"请提供{field}：")
+    
+    def _get_field_display_name(self, field: str) -> str:
+        """获取字段的显示名称"""
+        display_names = {
+            "ticket_number": "机票票号",
+            "passenger_dob": "出生日期",
+            "departure_airport": "出发机场",
+            "arrival_airport": "目的地机场",
+            "departure_date": "出发日期",
+            "return_date": "返程日期",
+            "adult_passengers": "成人乘客人数"
+        }
+        return display_names.get(field, field)
 
     async def _process_airport_field(self, state: MessageState, field: str) -> Dict[str, Any]:
         """处理机场代码收集"""

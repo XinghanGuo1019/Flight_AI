@@ -8,7 +8,6 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from langgraph.graph import END, StateGraph
 from backend.langgraph_nodes.collect_info_node import InfoCollectionNode
-from backend.langgraph_nodes.general_response_node import GeneralResponseNode
 from backend.langgraph_nodes.intent_detection_node import IntentDetectionNode
 from backend.langgraph_nodes.search_node import SearchNode
 from backend.schemas import ChatRequest, ChatResponse, MessageState
@@ -57,42 +56,65 @@ def create_workflow(llm):
     # 添加节点
     nodes = {
         "intent_detection_node": IntentDetectionNode(llm).process,
-        "url_generation_node": SearchNode(llm).process,
+        "search_node": SearchNode(llm).process,
         "info_collection_node": InfoCollectionNode(llm).process,
-        "general_response_node": GeneralResponseNode(llm).process
     }
     for node_id, node_func in nodes.items():
         builder.add_node(node_id, node_func)
 
+    # 添加等待用户输入的节点 - 这个节点在每轮对话后返回控制权给前端
     builder.add_node("awaiting_user_input", lambda state: state)
     
-    # 设置固定边
-    # 新增等待状态转移
+    # 设置固定边 - 从信息收集和一般回复节点到等待用户输入
     builder.add_edge("info_collection_node", "awaiting_user_input")
-    builder.add_edge("general_response_node", "awaiting_user_input")
-    builder.add_edge("url_generation_node", "awaiting_user_input")
-    builder.add_edge("url_generation_node", END)
-
+    
+    # 搜索节点到结束的边 - 完成工作流
+    builder.add_edge("search_node", END)
+    
+    # 设置入口点
     builder.set_entry_point("intent_detection_node")
     
-    # 条件路由（优化版）
+    # 条件路由逻辑
     def route_logic(state: MessageState):
-        # 意图判断路由
+        # 获取最后一条消息的意图信息
         last_message = state.messages[-1] if state.messages else None
-        intent = getattr(last_message, "intent_info", {}).get("intent")
+        # 当意图识别节点已生成回复时
+        if last_message and last_message.get("sender") == "system":
+            return "awaiting_user_input"  # 直接等待用户输入
         
+        # 提取意图
+        intent = last_message.get("intent") if last_message else None
         if intent == "flight_change":
-            return "info_collection_node" if state.missing_info else "url_generation_node"
-        return "general_response_node"
+            return "info_collection_node" if state.missing_info else "search_node"
+    
+        return "awaiting_user_input"  # 非改签意图直接结束流程
+    
+    # 添加条件边
     builder.add_conditional_edges(
         "intent_detection_node",
         route_logic,
         {
             "info_collection_node": "info_collection_node",
-            "url_generation_node": "url_generation_node",
-            "general_response_node": "general_response_node"
+            "search_node": "search_node",
+            "awaiting_user_input": "awaiting_user_input"
         }
-    )    
+    )
+    
+    # 从信息收集节点添加条件边，检查是否收集完毕
+    def info_collection_complete(state: MessageState):
+        if not state.missing_info:
+            return "search_node"
+        return "awaiting_user_input"
+    
+    builder.add_conditional_edges(
+        "info_collection_node",
+        info_collection_complete,
+        {
+            "search_node": "search_node",
+            "awaiting_user_input": "awaiting_user_input"
+        }
+    )
+    
     workflow = builder.compile()
     visualize_workflow(workflow)
     return workflow
@@ -132,7 +154,7 @@ async def chat_endpoint(request: ChatRequest, fastapi_request: Request):
         # 执行工作流（单步模式）
         result = await app.state.workflow.ainvoke(
             state.dict(),
-            {"configurable": {"recursion_limit": 1}}  # 关键配置
+            {"configurable": {"recursion_limit": 1, "interrupt_after": ["intent_detection_node"]}}  # 关键配置
         )
         requires_input = result.get("next") == "awaiting_user_input"
         # 保存新状态
