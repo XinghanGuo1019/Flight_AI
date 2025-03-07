@@ -4,7 +4,7 @@ import logging
 from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import AIMessage  # 导入 AIMessage
-from backend.schemas import FlightChangeMessage, GeneralMessage
+from schemas import FlightChangeMessage, GeneralMessage
 
 # 配置日志
 logger = logging.getLogger(__name__)

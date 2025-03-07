@@ -6,7 +6,7 @@ import re
 from typing import Dict, Any, Optional, List
 from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
-from backend.schemas import MessageState, FlightInfoRequirements
+from schemas import MessageState, FlightInfoRequirements
 
 logger = logging.getLogger(__name__)
 
