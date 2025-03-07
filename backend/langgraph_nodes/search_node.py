@@ -3,7 +3,7 @@ import logging
 from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
-from ..config import Settings
+from config import Settings
 from langchain.schema import HumanMessage
 from langchain_core.runnables import RunnableLambda
 
