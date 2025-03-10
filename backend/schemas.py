@@ -2,6 +2,7 @@
 from datetime import date
 from typing import Any, Dict, List, Optional, TypedDict, Union
 from uuid import uuid4
+from loguru import logger
 from pydantic import BaseModel, Field
 
 class ChatMessage(BaseModel):
@@ -14,7 +15,8 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
-    flight_request_url: str | None = None
+    session_id: str
+    flight_url: str | None = None
     
 class FlightInfoRequirements(BaseModel):
     """机票改签所需信息字段定义"""
@@ -23,7 +25,7 @@ class FlightInfoRequirements(BaseModel):
         description="机票票号（格式：3字母+10数字，如：ABC12345678）",
         pattern=r"^[A-Z]{3}\d{10}$"
     )
-    passenger_dob: Optional[date] = Field(
+    passenger_birthday: Optional[date] = Field(
         None,
         description="乘客出生日期（dd.mm.yyyy）"
     )
@@ -82,8 +84,16 @@ class MessageState(BaseModel):
         description="已收集的信息"
     )
     missing_info: List[str] = Field(
-        default_factory=list,
-        description="缺失的信息字段列表"
+        default_factory=lambda: [
+            "ticket_number",
+            "passenger_birthday", 
+            "departure_airport",
+            "arrival_airport",
+            "departure_date",
+            "return_date",
+            "adult_passengers"
+        ],
+        description="缺失信息字段"
     )
     def model_copy(self, **kwargs):
         """创建当前对象的副本"""
@@ -101,3 +111,9 @@ class MessageState(BaseModel):
             "collected_info": self.collected_info,
             "missing_info": self.missing_info
         }
+    def log_state(self):
+        """记录当前状态"""
+        logger.info(f"\n=== 当前收集状态 ===")
+        logger.info(f"已收集信息: {self.collected_info}")
+        logger.info(f"缺失字段: {self.missing_info}")
+        logger.info(f"最新消息: {self.messages[-1]['content'] if self.messages else '无'}\n")

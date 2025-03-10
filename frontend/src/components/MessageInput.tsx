@@ -22,6 +22,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault(); // 防止默认行为（如表单提交）
+      handleSubmit(e as unknown as React.FormEvent);
+    }
+  };
+
   return (
     <form className="message-input" onSubmit={handleSubmit}>
       <input
@@ -30,6 +37,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         onChange={(e) => setMessage(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
+        onKeyDown={handleKeyDown}
       />
       <button type="submit" disabled={disabled}>
         {disabled ? "发送中..." : "发送"}

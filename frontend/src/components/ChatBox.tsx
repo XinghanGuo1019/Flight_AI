@@ -1,65 +1,60 @@
+// ChatBox.tsx（修改后）
 import React, { useState } from "react";
 import axios from "axios";
-import Message from "./Message.tsx";
-import { MessageInput } from "./MessageInput.tsx";
+import Message from "./Message";
+import { MessageInput } from "./MessageInput";
 import "../style.css";
 
 type ChatMessage = {
-  sender: "user" | "assistant";
+  sender: "user" | "assistant" | "system";
   text: string;
-  flightUrl?: string; // 可选字段
+  flightUrl?: string;
+  isAwaitSignal?: boolean;
 };
 
 interface ChatResponse {
   response: string;
   session_id: string;
-  requires_input: boolean;
   flight_url?: string;
 }
 
 const ChatBox: React.FC = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isWaiting, setIsWaiting] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const handleSend = async (userMessage: string) => {
     try {
-      // 禁用输入并添加用户消息
-      setIsWaiting(true);
       const userMessageObj: ChatMessage = {
         sender: "user",
         text: userMessage,
       };
 
-      const newMessages = [...messages, userMessageObj];
-      setMessages(newMessages);
+      // 临时消息列表（包含用户输入）
+      const tempMessages = [...messages, userMessageObj];
+      setMessages(tempMessages);
 
-      // 发送请求
       const response = await axios.post<ChatResponse>(
         "http://localhost:8000/chat",
-        {
-          message: userMessage,
-          session_id: sessionId,
-        }
+        { message: userMessage, session_id: sessionId }
       );
 
-      // 处理响应
       const { data } = response;
       setSessionId(data.session_id);
 
-      // 添加助理回复
-      const assistantMessageObj: ChatMessage = {
-        sender: "assistant",
-        text: data.response,
-        flightUrl: data.flight_url,
-      };
+      // 构建助理消息（过滤系统等待标记）
+      const assistantMessages: ChatMessage[] = [];
+      if (data.response !== "SYSTEM_AWAIT_NEXT_INPUT") {
+        assistantMessages.push({
+          sender: "assistant",
+          text: data.response,
+          flightUrl: data.flight_url,
+        });
+      }
 
-      setMessages([...newMessages, assistantMessageObj]);
+      // 更新最终消息列表
+      const finalMessages = [...tempMessages, ...assistantMessages];
+      setMessages(finalMessages);
 
-      // 根据 requires_input 控制输入状态
-      setIsWaiting(data.requires_input);
-
-      // 如果有机票链接则显示
       if (data.flight_url) {
         window.open(data.flight_url, "_blank");
       }
@@ -69,7 +64,6 @@ const ChatBox: React.FC = () => {
         ...prev,
         { sender: "assistant", text: "服务暂时不可用，请稍后重试" },
       ]);
-      setIsWaiting(false);
     }
   };
 
@@ -77,14 +71,15 @@ const ChatBox: React.FC = () => {
     <div className="chat-box">
       <div className="messages">
         {messages.map((msg, index) => (
-          <Message key={index} sender={msg.sender} text={msg.text} />
+          <Message
+            key={index}
+            sender={msg.sender}
+            text={msg.text}
+            flightUrl={msg.flightUrl} // 传递机票链接
+          />
         ))}
       </div>
-      <MessageInput
-        onSend={handleSend}
-        disabled={isWaiting}
-        placeholder={isWaiting ? "正在处理您的请求..." : "请输入消息"}
-      />
+      <MessageInput onSend={handleSend} disabled={false} placeholder={""} />
     </div>
   );
 };

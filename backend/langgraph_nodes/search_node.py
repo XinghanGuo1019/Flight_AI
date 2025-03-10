@@ -1,13 +1,13 @@
 # search_node.py
-import logging
+from loguru import logger
 from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
-from config import Settings
+from backend.config import Settings
 from langchain.schema import HumanMessage
 from langchain_core.runnables import RunnableLambda
 
-logger = logging.getLogger(__name__)
+
 settings = Settings()
 api_key = settings.openai_api_key
 llm = OpenAI(api_key=api_key)

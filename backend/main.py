@@ -1,25 +1,28 @@
 # backend/main.py
-import json
-import logging
 from datetime import datetime
 from uuid import uuid4
 from typing import Dict, Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from langgraph.graph import END, StateGraph
-from langgraph_nodes.collect_info_node import InfoCollectionNode
-from langgraph_nodes.intent_detection_node import IntentDetectionNode
-from langgraph_nodes.search_node import SearchNode
-from schemas import ChatRequest, ChatResponse, MessageState
-from dependencies import get_settings, get_llm
-from chains.response import create_final_chain
-from utils.visualization import visualize_workflow
 
-# 初始化日志
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+from backend.langgraph_nodes.await_input_node import AwaitingUserInputNode
+from backend.langgraph_nodes.collect_info_node import InfoCollectionNode
+from backend.langgraph_nodes.intent_detection_node import IntentDetectionNode
+from backend.langgraph_nodes.search_node import SearchNode
+from backend.schemas import ChatRequest, ChatResponse, MessageState
+from backend.dependencies import get_settings, get_llm
+from backend.chains.response import create_final_chain
+from backend.utils.visualization import visualize_workflow
+
+print("=== 初始化后端服务 ===")
 
 app = FastAPI()
+
+@app.get("/test")
+async def test_endpoint():
+    print("\n===== TEST端点被调用 =====", flush=True)
+    return {"status": "OK"}
 
 # CORS配置
 app.add_middleware(
@@ -50,7 +53,6 @@ class SessionStore:
 session_store = SessionStore()
 
 def create_workflow(llm):
-    """创建并返回工作流"""
     builder = StateGraph(MessageState)
     
     # 添加节点
@@ -58,13 +60,13 @@ def create_workflow(llm):
         "intent_detection_node": IntentDetectionNode(llm).process,
         "search_node": SearchNode(llm).process,
         "info_collection_node": InfoCollectionNode(llm).process,
+        "awaiting_user_input": AwaitingUserInputNode().process,
     }
     for node_id, node_func in nodes.items():
         builder.add_node(node_id, node_func)
 
     # 添加等待用户输入的节点 - 这个节点在每轮对话后返回控制权给前端
-    builder.add_node("awaiting_user_input", lambda state: state)
-    
+    #builder.add_edge("awaiting_user_input", "intent_detection_node")
     # 设置固定边 - 从信息收集和一般回复节点到等待用户输入
     builder.add_edge("info_collection_node", "awaiting_user_input")
     
@@ -76,18 +78,38 @@ def create_workflow(llm):
     
     # 条件路由逻辑
     def route_logic(state: MessageState):
+        
         # 获取最后一条消息的意图信息
         last_message = state.messages[-1] if state.messages else None
-        # 当意图识别节点已生成回复时
-        if last_message and last_message.get("sender") == "system":
-            return "awaiting_user_input"  # 直接等待用户输入
+        print(f"上一条信息： {last_message}")
         
-        # 提取意图
-        intent = last_message.get("intent") if last_message else None
+        # 添加系统回复
+        intent = None
+        if last_message and last_message.get("sender") == "user":
+            # 仅当上一条是用户消息时才进行意图提取
+            intent_info = last_message.get("intent_info", {})
+            intent = intent_info.get("intent") if intent_info else None
+        
+        # 直接从消息中获取意图 (如果已由 intent_detection_node 添加)
+        if not intent and last_message:
+            intent_info = last_message.get("intent_info", {})
+            intent = intent_info.get("intent") if isinstance(intent_info, dict) else None
+        
+        print(f"检测到的意图: {intent}")
+        
+        # 根据意图决定下一步
         if intent == "flight_change":
-            return "info_collection_node" if state.missing_info else "search_node"
-    
-        return "awaiting_user_input"  # 非改签意图直接结束流程
+            # 如果是改签意图，检查是否需要收集信息
+            if state.missing_info:
+                print("进入信息收集节点")
+                return "info_collection_node"
+            else:
+                print("信息已完整，进入搜索节点")
+                return "search_node"
+        else:
+            # 非改签意图，等待用户输入
+            print("非改签意图，等待用户输入")
+            return "awaiting_user_input"
     
     # 添加条件边
     builder.add_conditional_edges(
@@ -119,17 +141,11 @@ def create_workflow(llm):
     visualize_workflow(workflow)
     return workflow
 
-@app.on_event("startup")
-async def startup_event():
-    """应用初始化"""
-    settings = get_settings()
-    app.state.llm = get_llm(settings)
-    app.state.workflow = create_workflow(app.state.llm)
-    app.state.response_chain = create_final_chain(app.state.llm)
-
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest, fastapi_request: Request):
     try:
+        print("\n===== 收到新请求 =====")
+        print(f"原始输入: {request.message}")
         # 会话管理
         session_id = request.session_id or str(uuid4())
         state = session_store.get(session_id) or MessageState()
@@ -141,7 +157,13 @@ async def chat_endpoint(request: ChatRequest, fastapi_request: Request):
                     {"content": "SYSTEM_INIT", "sender": "system"}
                 ],
                 collected_info={},
-                missing_info=[],
+                missing_info=["ticket_number",
+                    "passenger_birthday",
+                    "departure_airport",
+                    "arrival_airport",
+                    "departure_date",
+                    "return_date",
+                    "adult_passengers"],
 
             )
         
@@ -154,9 +176,8 @@ async def chat_endpoint(request: ChatRequest, fastapi_request: Request):
         # 执行工作流（单步模式）
         result = await app.state.workflow.ainvoke(
             state.dict(),
-            {"configurable": {"recursion_limit": 1, "interrupt_after": ["intent_detection_node"]}}  # 关键配置
+            config={"configurable": {"recursion_limit": 20, "interrupt_before": ["awaiting_user_input"], "entry_point": "intent_detection_node"}} 
         )
-        requires_input = result.get("next") == "awaiting_user_input"
         # 保存新状态
         new_state = MessageState(**result)
         session_store.save(session_id, new_state)
@@ -165,12 +186,22 @@ async def chat_endpoint(request: ChatRequest, fastapi_request: Request):
         return ChatResponse(
             response=new_state.messages[-1]["content"], 
             session_id=session_id,
-            requires_input=requires_input,
             flight_url=new_state.messages[-1].get("flight_url")
         )
     except Exception as e:
-        logger.error(f"Chat error: {str(e)}")
+        print(f"Chat error: {str(e)}")
         raise HTTPException(500, detail=str(e))
+    
+@app.on_event("startup")
+async def startup_event():
+    from fastapi.routing import APIRoute
+    for route in app.routes:
+        if isinstance(route, APIRoute):
+            print(f"Path: {route.path}, Methods: {route.methods}")
+    settings = get_settings()
+    app.state.llm = get_llm(settings)
+    app.state.workflow = create_workflow(app.state.llm)
+    app.state.response_chain = create_final_chain(app.state.llm)
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,6 +1,6 @@
 // src/App.tsx
 import React from "react";
-import ChatBox from "./components/ChatBox.tsx";
+import ChatBox from "./components/ChatBox";
 import "./style.css";
 
 const App: React.FC = () => {

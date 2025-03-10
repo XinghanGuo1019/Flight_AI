@@ -1,13 +1,10 @@
 # intent_detection_node.py
 import json
-import logging
+from loguru import logger
 from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import AIMessage  # 导入 AIMessage
-from schemas import FlightChangeMessage, GeneralMessage
-
-# 配置日志
-logger = logging.getLogger(__name__)
+from backend.schemas import FlightChangeMessage, GeneralMessage
 
 class IntentDetectionNode:
     def __init__(self, llm):
@@ -71,7 +68,7 @@ B) For other intents:
                     "intent_info": {"intent": data.get("intent", "other")}
                 }
         except Exception as e:
-            logging.error(f"Failed to parse LLM output: {e}")
+            logger.error(f"Failed to parse LLM output: {e}")
             return {
                 "type": "general",
                 "content": "抱歉，我暂时无法处理您的请求",
@@ -79,18 +76,17 @@ B) For other intents:
             }
 
     async def process(self, state):
-        logging.debug(f"Input state: {state}")
+        print("===Intent Detection Begin===")
         
         # 直接使用 state.messages 作为聊天历史
         messages = state.messages
         
         # 调用链并记录原始输出
         raw_output = await self.chain.ainvoke({"messages": messages})
-        logging.debug(f"Raw LLM output: {raw_output}")
         
         # 确保结果包含所需的键
         if "intent_info" not in raw_output:
-            logging.error(f"Missing intent_info in result: {raw_output}")
+            logger.error(f"Missing intent_info in result: {raw_output}")
             raw_output["intent_info"] = {"intent": "other"}
         
         # 动态创建消息对象
@@ -105,7 +101,7 @@ B) For other intents:
                 content=raw_output["content"],
                 intent_info=raw_output["intent_info"]
             )
-        logging.debug(f"Output message: {new_message}")
+        print(f"IntentOutput message: {new_message}")
         return {
             "messages": state.messages + [new_message.to_dict()], 
             "collected_info": state.collected_info,

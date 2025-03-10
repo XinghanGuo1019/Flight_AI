@@ -3,7 +3,7 @@ import React from "react";
 import "../style.css";
 
 interface MessageProps {
-  sender: "user" | "assistant";
+  sender: "user" | "assistant" | "system";
   text: string;
   flightUrl?: string; // 新增可选属性
 }
