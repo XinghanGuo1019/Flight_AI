@@ -19,7 +19,7 @@ As a flight ticketing specialist, analyze the conversation history and:
 
 2. **Response Generation**:
 A) For flight_change intent:
-   - List SPECIFIC missing fields from: [ticket_number, passenger_birthday, departure_date, return_date, adult_passengers]
+   - List SPECIFIC missing fields from: [ticket_number, passenger_birthday, departure_date, return_date, adult_passengers, departure_airport, arrival_airport]
    - Generate NATURAL request for missing info using conversation context
 
 B) For other intents:
@@ -77,7 +77,8 @@ B) For other intents:
 
     async def process(self, state):
         print("===Intent Detection Begin===")
-        
+        if state.messages[-1]["sender"] != "user":
+            return state  # 跳过系统消息
         # 直接使用 state.messages 作为聊天历史
         messages = state.messages
         

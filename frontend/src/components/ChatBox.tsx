@@ -19,7 +19,7 @@ interface ChatResponse {
 }
 
 const ChatBox: React.FC = () => {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [session_id, setSessionId] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const handleSend = async (userMessage: string) => {
@@ -35,7 +35,7 @@ const ChatBox: React.FC = () => {
 
       const response = await axios.post<ChatResponse>(
         "http://localhost:8000/chat",
-        { message: userMessage, session_id: sessionId }
+        { message: userMessage, session_id: session_id }
       );
 
       const { data } = response;

@@ -47,7 +47,7 @@ Response Format:
         ]).partial(format_instructions=self.parser.get_format_instructions())
 
     async def process(self, state: MessageState) -> MessageState:
-        print("Info collection node BEGIN")
+        print("===Info collection node BEGIN===")
         new_state = state.model_copy(deep=True)
         new_state.log_state()
         
@@ -81,15 +81,14 @@ Response Format:
                 f for f in new_state.missing_info 
                 if f not in result.get("collected_info", {})
             ]
-            print(f"Still missing info: {new_state.missing_info}")
-            
+            print(f"+++++++++++Result of collected_info: {new_state}")
             # 添加系统回复
             if response := result.get("response"):
                 new_state.messages.append({
                     "content": response,
                     "sender": "system"
                 })
-                
+  
         except Exception as e:
             logger.error(f"信息收集节点处理失败: {str(e)}", exc_info=True)  # 打印堆栈跟踪
             new_state.messages.append({

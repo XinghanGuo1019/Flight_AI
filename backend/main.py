@@ -5,6 +5,8 @@ from typing import Dict, Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from langgraph.graph import END, StateGraph
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import Command
 
 from backend.langgraph_nodes.await_input_node import AwaitingUserInputNode
 from backend.langgraph_nodes.collect_info_node import InfoCollectionNode
@@ -15,7 +17,6 @@ from backend.dependencies import get_settings, get_llm
 from backend.chains.response import create_final_chain
 from backend.utils.visualization import visualize_workflow
 
-print("=== 初始化后端服务 ===")
 
 app = FastAPI()
 
@@ -54,7 +55,7 @@ session_store = SessionStore()
 
 def create_workflow(llm):
     builder = StateGraph(MessageState)
-    
+    memory = MemorySaver()
     # 添加节点
     nodes = {
         "intent_detection_node": IntentDetectionNode(llm).process,
@@ -66,9 +67,9 @@ def create_workflow(llm):
         builder.add_node(node_id, node_func)
 
     # 添加等待用户输入的节点 - 这个节点在每轮对话后返回控制权给前端
-    #builder.add_edge("awaiting_user_input", "intent_detection_node")
+    builder.add_edge("awaiting_user_input", "intent_detection_node")
     # 设置固定边 - 从信息收集和一般回复节点到等待用户输入
-    builder.add_edge("info_collection_node", "awaiting_user_input")
+    #builder.add_edge("info_collection_node", "awaiting_user_input")
     
     # 搜索节点到结束的边 - 完成工作流
     builder.add_edge("search_node", END)
@@ -78,7 +79,8 @@ def create_workflow(llm):
     
     # 条件路由逻辑
     def route_logic(state: MessageState):
-        
+        if state.messages[-1]["sender"] != "user":
+            return "awaiting_user_input"  # ✅ 跳过系统消息
         # 获取最后一条消息的意图信息
         last_message = state.messages[-1] if state.messages else None
         print(f"上一条信息： {last_message}")
@@ -136,26 +138,49 @@ def create_workflow(llm):
             "awaiting_user_input": "awaiting_user_input"
         }
     )
+
+    def after_user_input_logic(state: MessageState):
+        last_message = state.messages[-1] if state.messages else None
+        if last_message:
+            intent_info = last_message.get("intent_info", {})
+            intent = intent_info.get("intent") if intent_info else None
+        print(f"+++++++++++++++等待之后: {intent} {state.missing_info}")
+        if state.missing_info and intent == "flight_change":
+            return "info_collection_node"
+        elif not state.missing_info and intent == "flight_change":
+            return "search_node"
+        else:
+            return "intent_detection_node"
     
-    workflow = builder.compile()
+    builder.add_conditional_edges(
+        "awaiting_user_input",
+        after_user_input_logic,
+        {
+            "info_collection_node": "info_collection_node",
+            "search_node": "search_node",
+            "intent_detection_node": "intent_detection_node"
+        }
+    )
+    
+    workflow = builder.compile(checkpointer=memory)
     visualize_workflow(workflow)
     return workflow
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest, fastapi_request: Request):
-    try:
-        print("\n===== 收到新请求 =====")
-        print(f"原始输入: {request.message}")
+    try:      
         # 会话管理
         session_id = request.session_id or str(uuid4())
         state = session_store.get(session_id) or MessageState()
-
+        print("\n===== 收到新请求 =====")
+        print(f"原始输入: {state}")
         # 初始化新状态时提供默认消息
-        if not state:
+        if not state.messages:
+            print("到这步了吗？")
             state = MessageState(
-                messages=[  # ✅ 明确初始化
-                    {"content": "SYSTEM_INIT", "sender": "system"}
-                ],
+                messages=[ 
+                    {"content": request.message,
+                    "sender": "user"}],
                 collected_info={},
                 missing_info=["ticket_number",
                     "passenger_birthday",
@@ -164,20 +189,22 @@ async def chat_endpoint(request: ChatRequest, fastapi_request: Request):
                     "departure_date",
                     "return_date",
                     "adult_passengers"],
-
+            )
+            result = await app.state.workflow.ainvoke(
+            state.dict(),
+            config={"configurable": {"thread_id": session_id, "recursion_limit": 20}} 
+        )
+        else:
+            print("到第二步了吗？")
+            result = await app.state.workflow.ainvoke(
+                Command(resume=request.message),  # ✅ 关键恢复指令
+                config={"configurable": {"thread_id": session_id}}
             )
         
-        # 添加用户消息
         state.messages.append({
-            "content": request.message,
-            "sender": "user"
-        })
-        
-        # 执行工作流（单步模式）
-        result = await app.state.workflow.ainvoke(
-            state.dict(),
-            config={"configurable": {"recursion_limit": 20, "interrupt_before": ["awaiting_user_input"], "entry_point": "intent_detection_node"}} 
-        )
+                "content": request.message,
+                "sender": "user"
+        })      
         # 保存新状态
         new_state = MessageState(**result)
         session_store.save(session_id, new_state)
