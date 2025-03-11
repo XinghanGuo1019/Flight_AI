@@ -102,7 +102,7 @@ B) For other intents:
                 content=raw_output["content"],
                 intent_info=raw_output["intent_info"]
             )
-        print(f"IntentOutput message: {new_message}")
+        print(f"IntentOutput message: {new_message.intent_info}")
         return {
             "messages": state.messages + [new_message.to_dict()], 
             "collected_info": state.collected_info,

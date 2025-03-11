@@ -147,7 +147,7 @@ def create_workflow(llm):
         if last_sys_message:
             intent_info = last_sys_message.get("intent_info", {})
             intent = intent_info.get("intent") if intent_info else None
-        print(f"+++++++++++++++等待之后last message: {last_sys_message}")
+
         if intent == "flight_change":
             if state.missing_info:
                 return "info_collection_node"
@@ -177,7 +177,6 @@ async def chat_endpoint(request: ChatRequest, fastapi_request: Request):
         session_id = request.session_id or str(uuid4())
         state = session_store.get(session_id) or MessageState()
         print("\n===== 收到新请求 =====")
-        print(f"原始输入: {state}")
         # 初始化新状态时提供默认消息
         if not state.messages:
             state = MessageState(

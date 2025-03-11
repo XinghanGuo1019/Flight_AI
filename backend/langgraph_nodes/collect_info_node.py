@@ -30,27 +30,40 @@ Missing Fields: {missing_info}
 Processing Rules:
 1. Analyze the user's {input} and extract ALL available information if the info can be mapped to the required fields,
    put the mapped info into collected_info and remove the same field from missing_info, so that the chain can keep collecting the remaining fields.
-   for example, if the user says "my ticket number is ABC1234567890", the ticket_number field should be updated in collected_info and return the following data:
-    {{
-        "collected_info": {{"ticket_number": "ABC1234567890"}},
-        "missing_info": ["departure_date", "return_date", "adult_passengers", "departure_airport", "arrival_airport", "passenger_birthday"],
-        "response": "To proceed with changing your flight, we still need your passenger's birthday. Could you please provide that information?"
-    }}     
+   **VERY IMPORTANT**: try to understand the user's natural language input and map the input to the required fields. 
+             For example, both "my birthday is 1991.10.19" or "I was born on 1991.10.19" should be mapped to "passenger_birthday". 
+             Or another example: both "I want to leave on March 5th" or "I fly on March 5th" should be mapped to "departure_date". 
+             The same applies to all other fields: ticket_number, departure_airport, arrival_airport, return_date, adult_passengers.
+             If you are not sure about the mapping, please ask the user for clarification in "response".
 2. For dates: Convert any format to dd.mm.yyyy (e.g. "March 5th" → 05.03.2024)
 3. For airports:
-   - If city name is given (e.g. "New York"), provide all airport IATA code to user and ask user to specify airport code
-   - Accept only valid IATA codes (e.g. JFK)
+   - If city name is given (e.g. "New York") in user's input, provide all airport IATA code for that city to user and ask user to specify airport code in "response".
+   - Accept only valid IATA codes (e.g. JFK), you as a flight ticketing specialist should check that
 4. For ticket numbers: Auto-correct format (e.g. "Abc 123" → ABC1234567890)
 5. If multiple fields are provided in one message, process all simultaneously
-6. If no valid info found, politely ask for specific missing fields and do not change info in collected_info and missing_info
+6. **Output MUST be in valid JSON format. Do NOT return plain text.**
+7. If no valid info found, politely ask for specific missing fields in "response" and do not change "collected_info" and "missing_info", but still return the response in JSON format.
 
-**Strict JSON Response Format**(example)
-    {{
-        "collected_info": {{"field1": "value1", "field2": "value2"}}, // Update collected_info
-        "missing_info": ["field3", "field4"], // Update missing_info
-        "response": "Your next question/clarification" // System response
-    }}""")
+**Strict JSON Response Format** should be returned and it contains the following fields:
+-"collected_info": a Dict containing the collected information,
+-"missing_info": a List containing the STILL missing information,
+-"response": LLM's response to the user, asking for the STILL missing information or asking for clarification or indicate the completion of data collection.
+             
+for example, if the user says "my ticket number is ABC1234567890", the ticket_number field should be added to collected_info Dict and ticket_number shoulded be removed from missing_info List.  
+             """)
         ]).partial(format_instructions=self.parser.get_format_instructions())
+
+        # 构建处理链
+        self.chain = (
+            RunnablePassthrough.assign(
+                collected_info=lambda x: x.get("collected_info",{}),
+                missing_info=lambda x: x.get("missing_info",[]),
+                input=lambda x: x["input"]
+            )
+            | self.prompt
+            | self.llm
+            | self.parser
+        )
 
     async def process(self, state: MessageState) -> MessageState:
         print("===Info collection node BEGIN===")
@@ -61,28 +74,22 @@ Processing Rules:
         last_msg = next((m for m in reversed(state.messages) if m["sender"] == "user"), None)
         if not last_msg:
             return self._gen_next_question(new_state)
-            
-        print(f"+++++++++++Last message: {last_msg}")    
-        # 构建处理链
-        chain = (
-            RunnablePassthrough.assign(
-                collected_info=lambda x: x.get("collected_info",{}),
-                missing_info=lambda x: x.get("missing_info",[]),
-                input=lambda x: x["input"]
-            )
-            | self.prompt
-            | self.llm
-            | self.parser
-        )
+    
         
         # 执行处理
         try:
-            result = await chain.ainvoke({
-                "collected_info": new_state.collected_info,
-                "missing_info": new_state.missing_info,
-                "input": last_msg["content"]
-            })
-            print("LLM 返回结果:", result)
+            print("LLM 输入:", last_msg["content"])
+            try:
+                result = await self.chain.ainvoke({
+                    "collected_info": new_state.collected_info,
+                    "missing_info": new_state.missing_info,
+                    "input": last_msg["content"]
+                })
+                print(f"LLM 输出: {result}")
+                if not isinstance(result, dict):
+                    raise ValueError(f"Invalid JSON response: {result}")
+            except Exception as e:
+                logger.error(f"信息收集节点处理失败: {str(e)}", exc_info=True)
             
             # 更新收集状态
             new_state.collected_info.update(result.get("collected_info", {}))
@@ -90,13 +97,13 @@ Processing Rules:
                 f for f in new_state.missing_info 
                 if f not in result.get("collected_info", {})
             ]
-            print(f"+++++++++++Result of collected_info: {new_state.collected_info}")
-            print(f"+++++++++++Result of missing_info: {new_state.missing_info}")
+
             # 添加系统回复
             if response := result.get("response"):
                 new_state.messages.append({
                     "content": response,
-                    "sender": "system"
+                    "sender": "system",
+                    "intent_info": {"intent": "flight_change"}
                 })
   
         except Exception as e:

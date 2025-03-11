@@ -34,8 +34,8 @@ def get_llm(settings: Annotated[Settings, Depends(get_settings)]) -> ChatOpenAI:
     return ChatOpenAI(
         api_key=settings.openai_api_key,
         model=settings.model_name,
-        temperature=0.3,
-        max_tokens=1024
+        temperature=0.5,
+        max_tokens=2048
     )
 
 async def get_async_client(
