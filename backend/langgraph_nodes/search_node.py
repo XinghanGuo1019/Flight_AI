@@ -1,4 +1,6 @@
 # search_node.py
+import os
+from dotenv import load_dotenv
 from loguru import logger
 from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
@@ -7,10 +9,11 @@ from backend.config import Settings
 from langchain.schema import HumanMessage
 from langchain_core.runnables import RunnableLambda
 
-
-settings = Settings()
-api_key = settings.openai_api_key
-llm = OpenAI(api_key=api_key)
+load_dotenv()
+# settings = Settings()
+api_key = os.getenv("OPENAI_API_KEY")
+llm_url = os.getenv("LLM_URL")
+llm = OpenAI(api_key=api_key, base_url=llm_url)
 
 class SearchNode:
     def __init__(self, llm):

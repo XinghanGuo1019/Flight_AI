@@ -1,11 +1,16 @@
 import openai
+import os
 from config import Config
+from dotenv import load_dotenv
 
-openai.api_key = Config.OPENAI_API_KEY
+load_dotenv()
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
+llm_model = os.getenv("LLM_MODEL")
 
 def generate_response(user_message):
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model=llm_model,
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": user_message}

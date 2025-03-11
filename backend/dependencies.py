@@ -1,5 +1,7 @@
 # dependencies.py
 import logging
+import os
+from dotenv import load_dotenv
 from typing import Annotated, AsyncGenerator
 from fastapi import Depends, HTTPException
 from langchain_openai import ChatOpenAI
@@ -8,12 +10,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.config import Settings
 
 logger = logging.getLogger(__name__)
-
+load_dotenv()
 # 配置加载 ========================================================
 def get_settings() -> Settings:
     """加载应用配置（带错误处理）"""
     try:
-        return Settings()  # 自动从环境变量/.env加载
+        load_dotenv()
     except Exception as e:
         logger.critical("配置加载失败: %s", str(e))
         raise HTTPException(
@@ -22,9 +24,9 @@ def get_settings() -> Settings:
         ) from e
 
 # LLM 核心依赖 ====================================================
-def get_llm(settings: Annotated[Settings, Depends(get_settings)]) -> ChatOpenAI:
+def get_llm() -> ChatOpenAI:
     """获取LangChain OpenAI实例（同步）"""
-    if not settings.openai_api_key:
+    if not os.getenv("OPENAI_API_KEY"):
         logger.error("OPENAI_API_KEY未配置")
         raise HTTPException(
             status_code=500,
@@ -32,18 +34,17 @@ def get_llm(settings: Annotated[Settings, Depends(get_settings)]) -> ChatOpenAI:
         )
     
     return ChatOpenAI(
-        api_key=settings.openai_api_key,
-        model=settings.model_name,
+        api_key=os.getenv("OPENAI_API_KEY"),
+        base_url=os.getenv("LLM_URL"),
+        model=os.getenv("LLM_MODEL"),
         temperature=0.5,
         max_tokens=2048
     )
 
-async def get_async_client(
-    settings: Annotated[Settings, Depends(get_settings)]
-) -> AsyncGenerator[AsyncOpenAI, None]:
+async def get_async_client() -> AsyncGenerator[AsyncOpenAI, None]:
     """获取异步OpenAI客户端（资源安全）"""
     try:
-        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url=os.getenv("LLM_URL"))
         logger.debug("OpenAI异步客户端初始化成功")
         yield client
     except Exception as e:

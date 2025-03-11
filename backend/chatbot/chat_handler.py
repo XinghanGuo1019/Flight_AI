@@ -1,12 +1,16 @@
 import os
-import openai
-from config import Config
+from openai import OpenAI
+from dotenv import load_dotenv
 
-# 设置 OpenAI API 密钥
-api_key = Config.OPENAI_API_KEY
+load_dotenv()
+
+# 设置 LLM API 密钥
+api_key = os.getenv("OPENAI_API_KEY")
+llm_model = os.getenv("LLM_MODEL")
+llm_url = os.getenv("LLM_URL")
 
 # 初始化 OpenAI 客户端
-client = openai.Client(api_key=api_key)
+client = OpenAI(base_url=llm_url, api_key=api_key)
 
 # 初始化聊天历史记录
 chat_history = []
@@ -34,7 +38,7 @@ async def handle_chat(user_message: str) -> str:
     # 调用 OpenAI API 获取回复
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=llm_model,
             messages=messages,
             max_tokens=150,
             n=1,

@@ -216,11 +216,10 @@ async def startup_event():
     for route in app.routes:
         if isinstance(route, APIRoute):
             print(f"Path: {route.path}, Methods: {route.methods}")
-    settings = get_settings()
-    app.state.llm = get_llm(settings)
+    app.state.llm = get_llm()
     app.state.workflow = create_workflow(app.state.llm)
     app.state.response_chain = create_final_chain(app.state.llm)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("app", host="0.0.0.0", port=8000)

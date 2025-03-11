@@ -28,7 +28,6 @@ B) For other intents:
    - Politely decline non-flight related requests
 
 **Strict JSON Response Format**
-```json
 {{
     "intent": "flight_change" | "other",
     "missing_info": ["field1", "field2"],  // Use exact field names
@@ -47,7 +46,9 @@ B) For other intents:
             # 处理 AIMessage 输出
             if isinstance(text, AIMessage):
                 text = text.content  # 从 AIMessage 中提取内容
-            
+                text = text.replace("```json", "")
+                text = text.replace("```", "")
+                text = text.replace("\n", "")
             # 解析 JSON
             data = json.loads(text)
             # 验证并返回结构化数据
