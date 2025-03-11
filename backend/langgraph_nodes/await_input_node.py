@@ -15,12 +15,12 @@ class AwaitingUserInputNode:
                 "message": "请提供更多信息"  # 自定义提示内容
             }
         )
-        
+        print(f"===User Input: {user_input}===")
         # 恢复执行时处理用户输入（此时user_input为前端传回的值）
         return {
             "messages": state.messages + [{
                 "content": user_input,
-                "sender": "user",
+                "sender": "user"
             }],
             "collected_info": state.collected_info.copy(), 
             "missing_info": state.missing_info.copy() 

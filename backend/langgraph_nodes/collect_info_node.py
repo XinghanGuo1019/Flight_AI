@@ -24,26 +24,32 @@ Required Fields:
 - adult_passengers: Number of adults (1-9)
 
 Current Status:
-Collected Info: {{collected_info}}
-Missing Fields: {{missing_info}}
+Collected Info: {collected_info}
+Missing Fields: {missing_info}
 
 Processing Rules:
-1. Analyze the user's latest message and extract ALL available information if the info can be mapped to the required fields,
+1. Analyze the user's {input} and extract ALL available information if the info can be mapped to the required fields,
    put the mapped info into collected_info and remove the same field from missing_info, so that the chain can keep collecting the remaining fields.
+   for example, if the user says "my ticket number is ABC1234567890", the ticket_number field should be updated in collected_info and return the following data:
+    {{
+        "collected_info": {{"ticket_number": "ABC1234567890"}},
+        "missing_info": ["departure_date", "return_date", "adult_passengers", "departure_airport", "arrival_airport", "passenger_birthday"],
+        "response": "To proceed with changing your flight, we still need your passenger's birthday. Could you please provide that information?"
+    }}     
 2. For dates: Convert any format to dd.mm.yyyy (e.g. "March 5th" → 05.03.2024)
 3. For airports:
-   - If city name is given (e.g. "New York"), ask to specify airport code
+   - If city name is given (e.g. "New York"), provide all airport IATA code to user and ask user to specify airport code
    - Accept only valid IATA codes (e.g. JFK)
 4. For ticket numbers: Auto-correct format (e.g. "Abc 123" → ABC1234567890)
 5. If multiple fields are provided in one message, process all simultaneously
 6. If no valid info found, politely ask for specific missing fields and do not change info in collected_info and missing_info
 
-Response Format:
-{{
-    "collected_info": [updated fields],
-    "missing_info": [still fields],
-    "response": "Your next question/clarification"
-}}""")
+**Strict JSON Response Format**(example)
+    {{
+        "collected_info": {{"field1": "value1", "field2": "value2"}}, // Update collected_info
+        "missing_info": ["field3", "field4"], // Update missing_info
+        "response": "Your next question/clarification" // System response
+    }}""")
         ]).partial(format_instructions=self.parser.get_format_instructions())
 
     async def process(self, state: MessageState) -> MessageState:
@@ -56,11 +62,13 @@ Response Format:
         if not last_msg:
             return self._gen_next_question(new_state)
             
+        print(f"+++++++++++Last message: {last_msg}")    
         # 构建处理链
         chain = (
             RunnablePassthrough.assign(
-                collected_info=lambda x: x["collected_info"],
-                missing_info=lambda x: x["missing_info"]
+                collected_info=lambda x: x.get("collected_info",{}),
+                missing_info=lambda x: x.get("missing_info",[]),
+                input=lambda x: x["input"]
             )
             | self.prompt
             | self.llm
@@ -74,6 +82,7 @@ Response Format:
                 "missing_info": new_state.missing_info,
                 "input": last_msg["content"]
             })
+            print("LLM 返回结果:", result)
             
             # 更新收集状态
             new_state.collected_info.update(result.get("collected_info", {}))
@@ -81,7 +90,8 @@ Response Format:
                 f for f in new_state.missing_info 
                 if f not in result.get("collected_info", {})
             ]
-            print(f"+++++++++++Result of collected_info: {new_state}")
+            print(f"+++++++++++Result of collected_info: {new_state.collected_info}")
+            print(f"+++++++++++Result of missing_info: {new_state.missing_info}")
             # 添加系统回复
             if response := result.get("response"):
                 new_state.messages.append({

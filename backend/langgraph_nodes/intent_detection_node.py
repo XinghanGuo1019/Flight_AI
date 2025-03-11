@@ -16,6 +16,7 @@ As a flight ticketing specialist, analyze the conversation history and:
 1. **Intent Identification**:
    - Recognize if the user wants to modify existing flight plans (flight_change)
    - Identify general flight-related questions (other)
+   - when making a decision, consider only the conversation context, which is in the 'content', but ignore the 'intent_info' in the message
 
 2. **Response Generation**:
 A) For flight_change intent:
@@ -49,7 +50,6 @@ B) For other intents:
             
             # 解析 JSON
             data = json.loads(text)
-            
             # 验证并返回结构化数据
             if data.get("intent") == "flight_change":
                 return {
