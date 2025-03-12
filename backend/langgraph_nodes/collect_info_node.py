@@ -12,14 +12,14 @@ class InfoCollectionNode:
         self.llm = llm
         self.parser = JsonOutputParser()
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a professional flight ticketing specialist. Your task is to collect the following information from the user: 
+            ("system", """You are a professional flight ticketing specialist, you answer all questions using the language of user input. Your task is to collect the following information from the user: 
 Required Fields:
 - ticket_number: 13-digit ticket number (e.g. ABC1234567890)
 - passenger_birthday: Date in dd.mm.yyyy format
 - departure_airport: IATA 3-letter code
 - arrival_airport: IATA 3-letter code
-- departure_date: Date in dd.mm.yyyy format
-- return_date: Date in dd.mm.yyyy or "None"
+- departure_date: Date in yymmdd format
+- return_date: Date in yymmdd or "None"
 - adult_passengers: Number of adults (1-9)
 Current Status:
 Collected Info: {collected_info}
@@ -28,11 +28,11 @@ Processing Rules:
 1. Analyze the user's {input} and extract ALL available information if the info can be mapped to the required fields,
    put the mapped info into collected_info and remove the same field from missing_info, so that the chain can keep collecting the remaining fields.
    **VERY IMPORTANT**: try to understand the user's natural language input and map the input to the required fields. 
-             For example, both "my birthday is 1991.10.19" or "I was born on 1991.10.19" should be mapped to "passenger_birthday". 
+             Few-shot example, both "my birthday is 1991.10.19" or "I was born on 1991.10.19" should be mapped to "passenger_birthday". 
              Or another example: both "I want to leave on March 5th" or "I fly on March 5th" should be mapped to "departure_date". 
              The same applies to all other fields: ticket_number, departure_airport, arrival_airport, return_date, adult_passengers.
              If you are not sure about the mapping, please ask the user for clarification in "response".
-2. If you mapped departure_date or return_data: Convert any format to dd.mm.yyyy (e.g. "March 5th" → 05.03.2024)
+2. If you mapped departure_date or return_data: Convert any format to yymmdd (e.g. "March 5th" → 240305)
 3. If you mapped departure_airport or arrival_airport:
    - If city name is given (e.g. "I leave from New York") in user's input, provide all airport IATA code for New York  in "response" to user and ask user to specify airport code.
    - Accept only valid IATA codes (e.g. JFK), you as a flight ticketing specialist should check that in your memory.

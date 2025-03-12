@@ -60,7 +60,7 @@ B) For other intents:
                         "intent": data.get("intent", ""),
                         "missing_info": data.get("missing_info", [])
                     },
-                    "current_requirements": data.get("missing_info", [])
+                    "missing_info": data.get("missing_info", [])
                 }
             else:
                 return {
@@ -96,7 +96,7 @@ B) For other intents:
             new_message = FlightChangeMessage(
                 content=raw_output["content"],
                 intent_info=raw_output["intent_info"],
-                current_requirements=raw_output.get("current_requirements", [])
+                missing_info=raw_output.get("missing_info", [])
             )
         else:
             new_message = GeneralMessage(
@@ -107,5 +107,5 @@ B) For other intents:
         return {
             "messages": state.messages + [new_message.to_dict()], 
             "collected_info": state.collected_info,
-            "missing_info": raw_output.get("current_requirements", [])
+            "missing_info": raw_output.get("missing_info", [])
         }

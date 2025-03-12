@@ -1,78 +1,113 @@
-# search_node.py
-import os
-from dotenv import load_dotenv
+#search_node.py
 from loguru import logger
-from langchain_openai import OpenAI
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
-from backend.config import Settings
-from langchain.schema import HumanMessage
-from langchain_core.runnables import RunnableLambda
+from langchain_core.output_parsers import JsonOutputParser
 
-load_dotenv()
-# settings = Settings()
-api_key = os.getenv("OPENAI_API_KEY")
-llm_url = os.getenv("LLM_URL")
-llm = OpenAI(api_key=api_key, base_url=llm_url)
+from backend.schemas import FlightChangeMessage, GeneralMessage
 
 class SearchNode:
     def __init__(self, llm):
         self.llm = llm
         url_template = """
-        请根据以下已收集的信息，生成一个有效的机票搜索URL：
-        
-        出发地: {departure_airport}
-        目的地: {arrival_airport}
-        出发日期: {departure_date}
-        返程日期: {return_date}
-        成人乘客数: {adult_passengers}
-        
-        使用以下格式生成URL:
-        https://www.skyscanner.de/transport/flights/{departure_code}/{destination_code}/{departure_date}/{return_date}/?adults={adult_count}&cabinclass=economy
-        
-        日期格式应为YYMMDD。
-        仅返回生成的URL，不要添加任何说明或解释。
+        You are a professional flight ticketing assistant who answers all questions in the language of user input. Your task is to generate a valid flight search URL based on the collected information. Follow these rules strictly:
+
+1. **Input Information**:
+   - Departure Airport: {departure_airport}
+   - Arrival Airport: {arrival_airport}
+   - Departure Date: {departure_date}
+   - Return Date: {return_date}
+   - Adult Passengers: {adult_passengers}
+
+2. **Data Format Rules**:
+   - `departure_airport`: IATA 3-letter code (e.g., FRA for Frankfurt).
+   - `arrival_airport`: IATA 3-letter code (e.g., PEK for Beijing).
+   - `departure_date`: Date in `yymmdd` format.
+   - `return_date`: Date in `yymmdd` format or "None" if not applicable.
+   - `adult_passengers`: Number of adults (1-9).
+
+   If any input does not match the required format, automatically convert it to the correct format.
+
+3. **Output Format**:
+   - Return a strict JSON object with two fields: `content` and `flight_url`.
+   - If the URL cannot be generated, provide the reason in the `content` field and set `flight_url` to `null`.
+   - If the URL is successfully generated, include the URL in the `flight_url` field and provide a natural language response in the `content` field.
+
+4. **URL Generation Rules**:
+   - Use the following URL format:
+     ```
+     https://www.skyscanner.de/transport/flights/{departure_airport}/{arrival_airport}/{departure_date}/{return_date}/?adultsv2={adult_passengers}&cabinclass=economy
+     ```
+
+5. **Example Output**:
+   - If the URL is generated successfully:
+     ```json
+     {{
+       "content": "Your flight search URL has been successfully generated. Click the link to view available flights.",
+       "flight_url": "https://www.skyscanner.de/transport/flights/FRA/PEK/250903/250925/?adultv2=1&cabinclass=economy"
+     }}
+     ```
+   - If the URL cannot be generated:
+     ```json
+     {{
+       "content": "Error: The return date is missing. Please provide a valid return date or set it to 'None'.",
+       "flight_url": null
+     }}
+     ```
+
+6. **Instructions**:
+   - Always validate the input data and ensure it adheres to the required formats.
+   - If any required field is missing or invalid, return an error message in the `content` field and set `flight_url` to `null`.
+   - Do not include any additional explanations or notes outside the JSON object.
         """
         self.url_prompt = PromptTemplate.from_template(url_template)
-        self.url_chain = self.url_prompt | llm
-    
+        self.parser = JsonOutputParser()
+        self.url_chain = self.url_prompt | llm | self.parser
+
     async def process(self, state: dict) -> dict:
-        logger.debug(f"Input state: {state}")
+        print("====== SearchNode Begin ======")
         # 创建新状态副本
-        new_state = state.model_copy()
-        
+        new_state = state.copy(deep=True)
+
         # 准备URL生成所需信息
         collected_info = new_state.collected_info
-        
-        # 检查是否有所有必要的信息
-        required_fields = ["departure_airport", "arrival_airport", "departure_date"]
-        for field in required_fields:
-            if field not in collected_info:
-                new_state.messages.append({
-                    "content": f"缺少必要信息：{field}",
-                    "sender": "system"
-                })
-                return new_state.dict()
-        
-        # 处理日期格式转换等逻辑
-        # ...
-        
+        print(f"Collected Info: {collected_info}")
         # 生成URL
         url_input = {
-            "departure_airport": collected_info.get("departure_airport"),
-            "arrival_airport": collected_info.get("arrival_airport"),
-            "departure_date": collected_info.get("departure_date"),
-            "return_date": collected_info.get("return_date", ""),
-            "adult_passengers": collected_info.get("adult_passengers", 1)
+            "departure_airport": collected_info['departure_airport'],
+            "arrival_airport": collected_info['arrival_airport'],
+            "departure_date": collected_info['departure_date'],
+            "return_date": collected_info['return_date'],  
+            "adult_passengers": collected_info['adult_passengers']
         }
-        
-        url = await self.url_chain.ainvoke(url_input)
-        
-        # 添加URL到消息中
-        new_state.messages.append({
-            "content": "已为您找到以下航班选项，请点击链接查看：",
-            "sender": "system", 
-            "flight_url": url.strip()
-        })
-        
-        return new_state.dict()
+
+        try:
+            # 调用大模型生成URL
+            url_result = await self.url_chain.ainvoke(url_input)
+            print(f"Generated URL Result: {url_result}")
+
+            # 检查URL生成结果
+            if not isinstance(url_result, dict) or "content" not in url_result or "flight_url" not in url_result:
+                raise ValueError("Invalid JSON response from the search node model.")
+            
+            if url_result.get("flight_url"):
+                new_message = FlightChangeMessage(
+                    content=url_result.get("content"),
+                    intent_info={"intent": "flight_change", "missing_info": []},
+                    missing_info=[],
+                    flight_url=url_result.get("flight_url"),)
+            else:
+                new_message = GeneralMessage(
+                    content=url_result.get("content"),
+            )
+            return {"messages": state.messages + [new_message.to_dict()],
+                    "collected_info": state.collected_info,
+                    "missing_info": state.missing_info}
+
+        except Exception as e:
+            logger.error(f"URL generation failed: {str(e)}")
+            # 添加错误信息到消息中
+            new_state["messages"].append({
+                "content": f"Error: {str(e)}",
+                "sender": "system"
+            })
+            return new_state

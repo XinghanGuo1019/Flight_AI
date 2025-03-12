@@ -62,9 +62,9 @@ class BaseMessage(BaseModel):
 
 class FlightChangeMessage(BaseMessage):
     """flight_change 意图专用消息结构"""
-    intent_info: dict  # 必须包含 intent 和 missing_info
-    current_requirements: List[str]  # 等同于 missing_info
-    flight_url: Optional[str] = None  # 后续节点填充
+    intent_info: dict  
+    missing_info: List[str]  
+    flight_url: Optional[str] = None 
 
 class GeneralMessage(BaseMessage):
     """其他意图的通用消息结构"""

@@ -6,7 +6,6 @@ from typing import Annotated, AsyncGenerator
 from fastapi import Depends, HTTPException
 from langchain_openai import ChatOpenAI
 from openai import AsyncOpenAI
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from backend.config import Settings
 
 logger = logging.getLogger(__name__)
