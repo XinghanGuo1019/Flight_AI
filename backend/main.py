@@ -8,14 +8,14 @@ from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
-from backend.langgraph_nodes.await_input_node import AwaitingUserInputNode
-from backend.langgraph_nodes.collect_info_node import InfoCollectionNode
-from backend.langgraph_nodes.intent_detection_node import IntentDetectionNode
-from backend.langgraph_nodes.search_node import SearchNode
-from backend.schemas import ChatRequest, ChatResponse, MessageState
-from backend.dependencies import get_settings, get_llm
-from backend.chains.response import create_final_chain
-from backend.utils.visualization import visualize_workflow
+from .langgraph_nodes.await_input_node import AwaitingUserInputNode
+from .langgraph_nodes.collect_info_node import InfoCollectionNode
+from .langgraph_nodes.intent_detection_node import IntentDetectionNode
+from .langgraph_nodes.search_node import SearchNode
+from .schemas import ChatRequest, ChatResponse, MessageState
+from .dependencies import get_settings, get_llm
+from .chains.response import create_final_chain
+from .utils.visualization import visualize_workflow
 
 
 app = FastAPI()
