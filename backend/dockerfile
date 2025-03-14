@@ -3,6 +3,7 @@ FROM python:3.13-slim
 
 # 设置工作目录
 WORKDIR /app
+ENV PYTHONPATH="/app"
 
 # 复制依赖文件，并安装依赖
 COPY requirements.txt .
