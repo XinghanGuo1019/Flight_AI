@@ -20,10 +20,9 @@ from .utils.visualization import visualize_workflow
 
 app = FastAPI()
 
-@app.get("/test")
-async def test_endpoint():
-    print("\n===== TEST端点被调用 =====", flush=True)
-    return {"status": "OK"}
+@app.get("/")
+def read_root():
+    return {"message": "Service is up!"}
 
 # CORS配置
 app.add_middleware(
