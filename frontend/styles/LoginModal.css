@@ -1,0 +1,69 @@
+/* 使整个页面背景为浅灰色，并让登录表单居中显示 */
+.login-modal-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #f0f2f5;
+}
+
+/* 登录表单容器，采用卡片风格 */
+.login-form {
+  background: #ffffff;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 350px;
+  text-align: center;
+}
+
+/* 标题风格 */
+.login-title {
+  margin-bottom: 24px;
+  font-size: 24px;
+  color: #333;
+  font-weight: 600;
+}
+
+/* 每个输入组间距 */
+.input-group {
+  margin-bottom: 20px;
+}
+
+/* 输入框样式 */
+.login-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.login-input:focus {
+  border-color: #4a90e2;
+}
+
+/* 按钮样式 */
+.login-button {
+  width: 100%;
+  padding: 12px;
+  background-color: #4a90e2;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.login-button:hover {
+  background-color: #357abd;
+}
+
+/* 错误信息样式 */
+.login-error {
+  color: #e74c3c;
+  margin-bottom: 16px;
+}

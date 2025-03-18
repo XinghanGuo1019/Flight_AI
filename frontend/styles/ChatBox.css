@@ -1,0 +1,131 @@
+/* 整体应用容器 */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  width: 60vw;
+  margin: 0 auto;
+  background-color: #f9f9f9;
+}
+
+/* 标题样式 */
+h1 {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* 聊天框整体容器，卡片风格 */
+.chat-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px;
+  margin: 20px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* 消息区域 */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 15px;
+}
+
+/* 单条消息容器 */
+.message {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+/* 用户消息右对齐，助手和系统消息左对齐 */
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant,
+.message.system {
+  justify-content: flex-start;
+}
+
+/* 消息内容样式 */
+.message-content {
+  max-width: 70%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 16px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 用户消息：低饱和度浅绿色背景 */
+.message.user .message-content {
+  background-color: #e6f4ea;
+  color: #333;
+  text-align: right;
+}
+
+/* 助手和系统消息：低饱和度浅蓝色背景 */
+.message.assistant .message-content,
+.message.system .message-content {
+  background-color: #e8f0fe;
+  color: #333;
+  text-align: left;
+}
+
+/* 输入区域 */
+.message-input {
+  display: flex;
+  border-top: 1px solid #eee;
+  padding: 15px 10px 0;
+}
+
+.message-input input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  border-radius: 24px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.message-input input:focus {
+  border-color: #4a90e2;
+}
+
+.message-input button {
+  margin-left: 12px;
+  padding: 12px 20px;
+  border: none;
+  background-color: #4a90e2;
+  color: #fff;
+  border-radius: 24px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.message-input button:hover {
+  background-color: #357abd;
+}
+
+/* 自适应设置 */
+@media (max-width: 768px) {
+  .app {
+    width: 80vw;
+  }
+}
+
+@media (max-width: 480px) {
+  .app {
+    width: 100vw;
+  }
+}

@@ -1,6 +1,7 @@
 // src/components/LoginModal.tsx
 import React, { useState } from "react";
 import axios from "axios";
+import "../styles/LoginModal.css";
 
 interface LoginModalProps {
   onLoginSuccess: (token: string) => void;
@@ -32,25 +33,33 @@ const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="login-modal">
-      <form onSubmit={handleLogin}>
-        <h2>Please Login</h2>
-        {error && <p style={{ color: "red" }}>{error}</p>}
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        <button type="submit">Login</button>
+    <div className="login-modal-container">
+      <form className="login-form" onSubmit={handleLogin}>
+        <h2 className="login-title">Sign in to Your Account</h2>
+        {error && <p className="login-error">{error}</p>}
+        <div className="input-group">
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            className="login-input"
+          />
+        </div>
+        <div className="input-group">
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="login-input"
+          />
+        </div>
+        <button type="submit" className="login-button">
+          Login
+        </button>
       </form>
     </div>
   );

@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import Message from "./Message";
 import { MessageInput } from "./MessageInput";
-import "../style.css";
+import "../styles/ChatBox.css";
 
 export type ChatMessage = {
   sender: "user" | "assistant" | "system";
