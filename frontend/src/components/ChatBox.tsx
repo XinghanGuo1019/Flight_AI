@@ -37,7 +37,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({ token }) => {
       setMessages(tempMessages);
 
       const response = await axios.post<ChatResponse>(
-        // "http://localhost:8000/chat",
+        //"http://localhost:8000/chat",
         "https://flight-ai-zhhc.onrender.com/chat",
         { message: userMessage, session_id: session_id },
         { headers: { Authorization: `Bearer ${token}` } }

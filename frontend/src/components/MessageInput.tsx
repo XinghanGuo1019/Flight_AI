@@ -40,7 +40,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         onKeyDown={handleKeyDown}
       />
       <button type="submit" disabled={disabled}>
-        {disabled ? "发送中..." : "发送"}
+        {disabled ? "Sending..." : "Send"}
       </button>
     </form>
   );

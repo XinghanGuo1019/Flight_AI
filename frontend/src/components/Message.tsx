@@ -11,7 +11,7 @@ interface MessageProps {
 const Message: React.FC<MessageProps> = ({ sender, text, flightUrl }) => {
   return (
     <div className={`message ${sender}`}>
-      <div className="content">
+      <div className="message-content">
         {text}
         {flightUrl && (
           <a href={flightUrl} target="_blank" rel="noopener noreferrer">
