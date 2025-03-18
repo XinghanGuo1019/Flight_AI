@@ -1,6 +1,6 @@
 // src/components/Message.tsx
 import React from "react";
-import "../style.css";
+import "../styles/ChatBox.css";
 
 interface MessageProps {
   sender: "user" | "assistant" | "system";
