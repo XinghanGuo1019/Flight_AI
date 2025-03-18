@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import ChatBox from "./components/ChatBox";
 import LoginModal from "./components/LoginModal";
-import "./style.css";
+import "./styles/ChatBox.css";
 
 const App: React.FC = () => {
   const [token, setToken] = useState<string | null>(null);
