@@ -15,7 +15,7 @@ const Message: React.FC<MessageProps> = ({ sender, text, flightUrl }) => {
         {text}
         {flightUrl && (
           <a href={flightUrl} target="_blank" rel="noopener noreferrer">
-            查看机票详情
+            See flight details
           </a>
         )}
       </div>

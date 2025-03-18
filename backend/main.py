@@ -7,16 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
+from IPython.display import Image, display
 
 from .langgraph_nodes.await_input_node import AwaitingUserInputNode
 from .langgraph_nodes.collect_info_node import InfoCollectionNode
 from .langgraph_nodes.intent_detection_node import IntentDetectionNode
 from .langgraph_nodes.search_node import SearchNode
 from .schemas import ChatRequest, ChatResponse, MessageState
-from .dependencies import get_settings, get_llm
+from .dependencies import get_llm
 from .chains.response import create_final_chain
-from .utils.visualization import visualize_workflow
-
 
 app = FastAPI()
 
@@ -43,7 +42,6 @@ class SessionStore:
             return MessageState(**session_data["state"])
         return None
 
-    # 方法名从 save_session 改为 save
     def save(self, session_id: str, state: MessageState):
         self.sessions[session_id] = {
             "state": state.dict(),
@@ -65,16 +63,9 @@ def create_workflow(llm):
     for node_id, node_func in nodes.items():
         builder.add_node(node_id, node_func)
 
-    # 添加等待用户输入的节点 - 这个节点在每轮对话后返回控制权给前端
-    #builder.add_edge("awaiting_user_input", "intent_detection_node")
-    # 设置固定边 - 从信息收集和一般回复节点到等待用户输入
-    #builder.add_edge("info_collection_node", "awaiting_user_input")
-    
-    # 搜索节点到结束的边 - 完成工作流
-    builder.add_edge("search_node", END)
-    
     # 设置入口点
     builder.set_entry_point("intent_detection_node")
+    builder.add_edge("search_node", END)
     
     # 条件路由逻辑
     def route_logic(state: MessageState):
@@ -82,34 +73,20 @@ def create_workflow(llm):
             return "awaiting_user_input"  # ✅ 跳过系统消息
         # 获取最后一条消息的意图信息
         last_message = state.messages[-1] if state.messages else None
-        print(f"上一条信息： {last_message}")
+        intent_info = last_message.get("intent_info", {})
+        intent = intent_info.get("intent") if intent_info else None
         
-        # 添加系统回复
-        intent = None
-        if last_message and last_message.get("sender") == "user":
-            # 仅当上一条是用户消息时才进行意图提取
-            intent_info = last_message.get("intent_info", {})
-            intent = intent_info.get("intent") if intent_info else None
-        
-        # 直接从消息中获取意图 (如果已由 intent_detection_node 添加)
-        if not intent and last_message:
-            intent_info = last_message.get("intent_info", {})
-            intent = intent_info.get("intent") if isinstance(intent_info, dict) else None
-        
-        print(f"检测到的意图: {intent}")
+        print(f"Intent Detection: {intent}")
         
         # 根据意图决定下一步
         if intent == "flight_change":
             # 如果是改签意图，检查是否需要收集信息
             if state.missing_info:
-                print("进入信息收集节点")
                 return "info_collection_node"
             else:
-                print("信息已完整，进入搜索节点")
                 return "search_node"
         else:
             # 非改签意图，等待用户输入
-            print("非改签意图，等待用户输入")
             return "awaiting_user_input"
     
     # 添加条件边
@@ -166,11 +143,18 @@ def create_workflow(llm):
     )
     
     workflow = builder.compile(checkpointer=memory)
-    visualize_workflow(workflow)
+    try:
+        graph=workflow.get_graph().draw_mermaid_png()
+        with open("workflow_graph.png", "wb") as f:
+            f.write(graph)
+        display(Image(graph))
+    except Exception:
+        print(f"Error drawing graph")
+        pass
     return workflow
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest, fastapi_request: Request):
+async def chat_endpoint(request: ChatRequest):
     try:      
         # 会话管理
         session_id = request.session_id or str(uuid4())

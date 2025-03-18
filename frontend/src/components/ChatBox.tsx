@@ -34,7 +34,8 @@ const ChatBox: React.FC = () => {
       setMessages(tempMessages);
 
       const response = await axios.post<ChatResponse>(
-        "https://flight-ai-zhhc.onrender.com/chat",
+        "http://localhost:8000/chat",
+        // "https://flight-ai-zhhc.onrender.com/chat",
         { message: userMessage, session_id: session_id }
       );
 

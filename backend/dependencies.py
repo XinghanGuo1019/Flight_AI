@@ -24,7 +24,6 @@ def get_settings() -> Settings:
 
 # LLM 核心依赖 ====================================================
 def get_llm() -> ChatOpenAI:
-    """获取LangChain OpenAI实例（同步）"""
     if not os.getenv("OPENAI_API_KEY"):
         logger.error("OPENAI_API_KEY未配置")
         raise HTTPException(

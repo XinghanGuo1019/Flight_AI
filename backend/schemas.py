@@ -1,6 +1,6 @@
 #schemas.py
 from datetime import date
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
 from loguru import logger
 from pydantic import BaseModel, Field
