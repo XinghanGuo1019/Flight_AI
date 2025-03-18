@@ -1,11 +1,11 @@
-// ChatBox.tsx（修改后）
+// src/components/ChatBox.tsx
 import React, { useState } from "react";
 import axios from "axios";
 import Message from "./Message";
 import { MessageInput } from "./MessageInput";
 import "../style.css";
 
-type ChatMessage = {
+export type ChatMessage = {
   sender: "user" | "assistant" | "system";
   text: string;
   flightUrl?: string;
@@ -18,7 +18,11 @@ interface ChatResponse {
   flight_url?: string;
 }
 
-const ChatBox: React.FC = () => {
+interface ChatBoxProps {
+  token: string;
+}
+
+const ChatBox: React.FC<ChatBoxProps> = ({ token }) => {
   const [session_id, setSessionId] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
@@ -29,20 +33,19 @@ const ChatBox: React.FC = () => {
         text: userMessage,
       };
 
-      // 临时消息列表（包含用户输入）
       const tempMessages = [...messages, userMessageObj];
       setMessages(tempMessages);
 
       const response = await axios.post<ChatResponse>(
-        "http://localhost:8000/chat",
-        // "https://flight-ai-zhhc.onrender.com/chat",
-        { message: userMessage, session_id: session_id }
+        // "http://localhost:8000/chat",
+        "https://flight-ai-zhhc.onrender.com/chat",
+        { message: userMessage, session_id: session_id },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const { data } = response;
       setSessionId(data.session_id);
 
-      // 构建助理消息（过滤系统等待标记）
       const assistantMessages: ChatMessage[] = [];
       if (data.response !== "SYSTEM_AWAIT_NEXT_INPUT") {
         assistantMessages.push({
@@ -52,7 +55,6 @@ const ChatBox: React.FC = () => {
         });
       }
 
-      // 更新最终消息列表
       const finalMessages = [...tempMessages, ...assistantMessages];
       setMessages(finalMessages);
 
@@ -76,7 +78,7 @@ const ChatBox: React.FC = () => {
             key={index}
             sender={msg.sender}
             text={msg.text}
-            flightUrl={msg.flightUrl} // 传递机票链接
+            flightUrl={msg.flightUrl}
           />
         ))}
       </div>

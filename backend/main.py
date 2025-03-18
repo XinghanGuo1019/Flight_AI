@@ -2,12 +2,13 @@
 from datetime import datetime
 from uuid import uuid4
 from typing import Dict, Optional
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 from IPython.display import Image, display
+from .auth import get_current_user, router as auth_router
 
 from .langgraph_nodes.await_input_node import AwaitingUserInputNode
 from .langgraph_nodes.collect_info_node import InfoCollectionNode
@@ -18,12 +19,13 @@ from .dependencies import get_llm
 from .chains.response import create_final_chain
 
 app = FastAPI()
+app.include_router(auth_router)
 
 @app.get("/")
 def read_root():
     return {"message": "Service is up!"}
 
-# CORS配置
+# CORS 配置
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,7 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 会话存储（生产环境建议使用Redis）
+# 会话存储（生产环境建议使用 Redis）
 class SessionStore:
     def __init__(self):
         self.sessions: Dict[str, dict] = {}
@@ -70,26 +72,19 @@ def create_workflow(llm):
     # 条件路由逻辑
     def route_logic(state: MessageState):
         if state.messages[-1]["sender"] != "user":
-            return "awaiting_user_input"  # ✅ 跳过系统消息
-        # 获取最后一条消息的意图信息
+            return "awaiting_user_input"
         last_message = state.messages[-1] if state.messages else None
-        intent_info = last_message.get("intent_info", {})
-        intent = intent_info.get("intent") if intent_info else None
-        
+        intent_info = last_message.get("intent_info", {}) if last_message else {}
+        intent = intent_info.get("intent")
         print(f"Intent Detection: {intent}")
-        
-        # 根据意图决定下一步
         if intent == "flight_change":
-            # 如果是改签意图，检查是否需要收集信息
             if state.missing_info:
                 return "info_collection_node"
             else:
                 return "search_node"
         else:
-            # 非改签意图，等待用户输入
             return "awaiting_user_input"
     
-    # 添加条件边
     builder.add_conditional_edges(
         "intent_detection_node",
         route_logic,
@@ -100,7 +95,6 @@ def create_workflow(llm):
         }
     )
     
-    # 从信息收集节点添加条件边，检查是否收集完毕
     def info_collection_complete(state: MessageState):
         if not state.missing_info:
             return "search_node"
@@ -118,12 +112,11 @@ def create_workflow(llm):
     def after_user_input_logic(state: MessageState):
         last_sys_message = next(
             (message for message in reversed(state.messages) if message.get('sender') in {'system', 'assistant'}),
-        None
+            None
         )
         if last_sys_message:
             intent_info = last_sys_message.get("intent_info", {})
-            intent = intent_info.get("intent") if intent_info else None
-
+            intent = intent_info.get("intent")
         if intent == "flight_change":
             if state.missing_info:
                 return "info_collection_node"
@@ -144,48 +137,46 @@ def create_workflow(llm):
     
     workflow = builder.compile(checkpointer=memory)
     try:
-        graph=workflow.get_graph().draw_mermaid_png()
+        graph = workflow.get_graph().draw_mermaid_png()
         with open("workflow_graph.png", "wb") as f:
             f.write(graph)
         display(Image(graph))
     except Exception:
-        print(f"Error drawing graph")
-        pass
+        print("Error drawing graph")
     return workflow
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
-    try:      
+async def chat_endpoint(
+    request: ChatRequest,
+    current_user: dict = Depends(get_current_user)  # 验证令牌
+):
+    try:
         # 会话管理
         session_id = request.session_id or str(uuid4())
         state = session_store.get(session_id) or MessageState()
-        print("\n===== 收到新请求 =====")
-        # 初始化新状态时提供默认消息
+
         if not state.messages:
             state = MessageState(
-                messages=[ 
-                    {"content": request.message,
-                    "sender": "user"}],
+                messages=[{
+                    "content": request.message,
+                    "sender": "user"
+                }],
                 collected_info={},
                 missing_info=[],
             )
             result = await app.state.workflow.ainvoke(
-            state.dict(),
-            config={"configurable": {"thread_id": session_id, "recursion_limit": 20}} 
-        )
-        else:        
+                state.dict(),
+                config={"configurable": {"thread_id": session_id, "recursion_limit": 20}}
+            )
+        else:
             result = await app.state.workflow.ainvoke(
-                Command(resume=request.message),  # ✅ 关键恢复指令
+                Command(resume=request.message),
                 config={"configurable": {"thread_id": session_id}}
             )
-
-        # 保存新状态
         new_state = MessageState(**result)
         session_store.save(session_id, new_state)
-        
-        # 构建响应
         return ChatResponse(
-            response=new_state.messages[-1]["content"], 
+            response=new_state.messages[-1]["content"],
             session_id=session_id,
             flight_url=new_state.messages[-1].get("flight_url")
         )
@@ -197,7 +188,7 @@ async def chat_endpoint(request: ChatRequest):
 async def startup_event():
     from fastapi.routing import APIRoute
     for route in app.routes:
-        if isinstance(route, APIRoute):
+        if hasattr(route, "path"):
             print(f"Path: {route.path}, Methods: {route.methods}")
     app.state.llm = get_llm()
     app.state.workflow = create_workflow(app.state.llm)
