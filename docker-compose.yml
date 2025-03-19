@@ -11,7 +11,7 @@ services:
 
   frontend:
     build: ./frontend
-    eviroment:
+    enviroment:
       - PORT=80
     ports:
       - "80:80"
