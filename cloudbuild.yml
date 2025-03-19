@@ -28,7 +28,6 @@ steps:
     args:
       - run
       - services
-      - update
       - $_SERVICE_NAME
       - '--platform=managed'
       - >-
