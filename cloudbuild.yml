@@ -6,3 +6,5 @@ steps:
       - 'docker-compose.yml'
       - 'up'
       - '-d'
+options:
+  logging: CLOUD_LOGGING_ONLY
