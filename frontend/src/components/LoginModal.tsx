@@ -22,7 +22,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onLoginSuccess }) => {
 
       const response = await axios.post(
         // "http://localhost:8000/login",
-        "https://flight-ai-zhhc.onrender.com/login",
+        "https://flightchat-api-service-583966147612.europe-west3.run.app/login",
         formData
       );
       const { access_token } = response.data;
