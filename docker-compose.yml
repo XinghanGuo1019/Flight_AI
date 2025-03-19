@@ -16,3 +16,8 @@ services:
     depends_on:
       - backend
     restart: always
+
+networks:
+  default:
+    external:
+      name: cloudbuild
