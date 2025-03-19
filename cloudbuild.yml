@@ -30,7 +30,6 @@ steps:
       - deploy
       - $_SERVICE_NAME
       - '--platform=managed'
-      - '--update-env-vars=PORT=80'
       - >-
         --image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
       - >-
