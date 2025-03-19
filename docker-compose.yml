@@ -11,6 +11,8 @@ services:
 
   frontend:
     build: ./frontend
+    eviroment:
+      - PORT=80
     ports:
       - "80:80"
     depends_on:
