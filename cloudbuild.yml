@@ -8,28 +8,28 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Tag api image for GCR'
     args: [
-      'tag', 'backend', 'gcr.io/$_AR_PROJECT_ID/flightchat-api:latest'
+      'tag', 'workspace_backend', 'gcr.io/$_AR_PROJECT_ID/flightchat-api:latest'
     ]
 
   # Step 3: Tag the web service image for GCR
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Tag web image for GCR'
     args: [
-      'tag', 'frontend', 'gcr.io/$_AR_PROJECT_ID/flightchat-app:latest'
+      'tag', 'workspace_backend', 'gcr.io/$_AR_PROJECT_ID/flightchat-app:latest'
     ]
 
   # Step 4: Push the api service image to GCR
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push api image to GCR'
     args: [
-      'push', 'gcr.io/$_AR_PROJECT_ID/my-app-api:latest'
+      'push', 'gcr.io/$_AR_PROJECT_ID/flightchat-api:latest'
     ]
 
   # Step 5: Push the web service image to GCR
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push web image to GCR'
     args: [
-      'push', 'gcr.io/$_AR_PROJECT_ID/my-app-web:latest'
+      'push', 'gcr.io/$_AR_PROJECT_ID/flightchat-app:latest'
     ]
 
   # Step 6: Deploy the api service to Cloud Run
