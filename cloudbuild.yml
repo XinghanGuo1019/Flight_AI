@@ -2,6 +2,7 @@ steps:
   - name: gcr.io/k8s-skaffold/pack
     env:
       - GOOGLE_ENTRYPOINT=$_ENTRYPOINT
+      - PORT=80
     args:
       - build
       - >-
