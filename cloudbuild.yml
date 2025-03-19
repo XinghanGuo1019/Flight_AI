@@ -66,3 +66,6 @@ steps:
 images:
   - 'gcr.io/$PROJECT_ID/flightchat-app:latest'
   - 'gcr.io/$PROJECT_ID/flightchat-api:latest'
+options:
+  env:
+    - 'CLOUD_LOGGING_ONLY=TRUE'
