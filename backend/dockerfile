@@ -6,8 +6,8 @@ WORKDIR /app
 ENV PYTHONPATH="/app"
 
 # 复制依赖文件，并安装依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r ../requirements.txt
+COPY ../requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 将代码复制到容器中
 COPY . .
