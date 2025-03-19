@@ -64,6 +64,7 @@ steps:
       '--region=$_DEPLOY_REGION',
       '--allow-unauthenticated'
     ]
+    waitFor: ['Wait for api service to be ready']
   
   # Step 9: Wait for the web service to be ready
   - name: 'gcr.io/cloud-builders/gcloud'
