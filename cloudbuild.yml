@@ -64,6 +64,17 @@ steps:
       '--region=$_DEPLOY_REGION',
       '--allow-unauthenticated'
     ]
+  
+  # Step 9: Wait for the api service to be ready
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Wait for api service to be ready'
+    args: [
+      'run', 'services', 'describe', 'flightchat-app-service',
+      '--platform', 'managed',
+      '--region=$_DEPLOY_REGION',
+      '--format', 'value(status.url)'
+    ]
+    waitFor: ['Deploy web service to Cloud Run']
 
 # Optional: Specify the Docker registry for images
 images:
