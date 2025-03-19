@@ -39,6 +39,7 @@ steps:
       'run', 'deploy', 'flightchat-api-service',
       '--image', 'gcr.io/$PROJECT_ID/flightchat-api:latest',
       '--platform', 'managed',
+      '--region=$_DEPLOY_REGION',
       '--allow-unauthenticated'
     ]
 
@@ -48,6 +49,7 @@ steps:
     args: [
       'run', 'services', 'describe', 'flightchat-api-service',
       '--platform', 'managed',
+      '--region=$_DEPLOY_REGION',
       '--format', 'value(status.url)'
     ]
     waitFor: ['Deploy api service to Cloud Run']
@@ -59,6 +61,7 @@ steps:
       'run', 'deploy', 'flightchat-app-service',
       '--image', 'gcr.io/$PROJECT_ID/flightchat-app:latest',
       '--platform', 'managed',
+      '--region=$_DEPLOY_REGION',
       '--allow-unauthenticated'
     ]
 
@@ -67,5 +70,14 @@ images:
   - 'gcr.io/$PROJECT_ID/flightchat-app:latest'
   - 'gcr.io/$PROJECT_ID/flightchat-api:latest'
 options:
-  env:
-    - 'CLOUD_LOGGING_ONLY=TRUE'
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _AR_HOSTNAME: europe-west3-docker.pkg.dev
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _TRIGGER_ID: a307fa02-233a-463a-956d-18ab36d69733
+  PROJECT_ID: able-folio-453710-a6
+  _PLATFORM: managed
+  _SERVICE_NAME: flightbot
+  REPO_NAME: flight_ai
+  _DEPLOY_REGION: europe-west3
