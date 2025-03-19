@@ -55,6 +55,10 @@ substitutions:
   _ENTRYPOINT: cloudbuild.yml
   _AR_PROJECT_ID: able-folio-453710-a6
   _TRIGGER_ID: d903563e-d991-4d36-b8b2-dba8eab8818e
+spec:
+  ports:
+  - port: 80
+    name: http
 tags:
   - gcp-cloud-build-deploy-cloud-run
   - gcp-cloud-build-deploy-cloud-run-managed
