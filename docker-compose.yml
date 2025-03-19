@@ -11,15 +11,13 @@ services:
 
   frontend:
     build: ./frontend
-    environment:
-      - PORT=80
     ports:
       - "80:80"
     depends_on:
       - backend
     restart: always
 
-networks:
-  default:
-    external:
-      name: cloudbuild
+# networks:
+#   default:
+#     external:
+#       name: cloudbuild
