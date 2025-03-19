@@ -65,9 +65,9 @@ steps:
       '--allow-unauthenticated'
     ]
   
-  # Step 9: Wait for the api service to be ready
+  # Step 9: Wait for the web service to be ready
   - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'Wait for api service to be ready'
+    id: 'Wait for web service to be ready'
     args: [
       'run', 'services', 'describe', 'flightchat-app-service',
       '--platform', 'managed',
