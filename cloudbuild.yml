@@ -16,7 +16,7 @@ steps:
     args:
       - up
       - '--build'
-      - 'd'
+      - '-d'
   - name: gcr.io/cloud-builders/docker
     args:
       - "push"
