@@ -1,0 +1,8 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+      args: 
+        - "compose"
+        - '-f'
+        - 'docker-compose.yml'
+        - 'up'
+        - '-d'
