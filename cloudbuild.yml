@@ -1,66 +1,68 @@
 steps:
-  - name: gcr.io/k8s-skaffold/pack
-    env:
-      - GOOGLE_ENTRYPOINT=$_ENTRYPOINT
-      - PORT=80
-    args:
-      - build
-      - >-
-        $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
-      - '--builder=gcr.io/buildpacks/builder:v1'
-      - '--network=cloudbuild'
-      - '--path=.'
-      - '--env=GOOGLE_ENTRYPOINT'
-    id: Buildpack
-    entrypoint: pack
-  - name: docker/compose
-    args:
-      - up
-      - '--build'
-      - '-d'
-#   - name: gcr.io/cloud-builders/docker
-#     args:
-#       - "push"
-#       - >-
-#         $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
-#     id: Push
-#   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-#     args:
-#       - run
-#       - deploy
-#       - $_SERVICE_NAME
-#       - '--platform=managed'
-#       - >-
-#         --image=$_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
-#       - >-
-#         --labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=$COMMIT_SHA,gcb-build-id=$BUILD_ID,gcb-trigger-id=$_TRIGGER_ID
-#       - '--region=$_DEPLOY_REGION'
-#       - '--timeout=300'
-#       - '--quiet'
-#     id: Deploy
-#     entrypoint: gcloud
-# images:
-#   - >-
-#     $_AR_HOSTNAME/$_AR_PROJECT_ID/$_AR_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA
-options:
-  substitutionOption: ALLOW_LOOSE
-  logging: CLOUD_LOGGING_ONLY
-substitutions:
-  _SERVICE_NAME: flightchat
-  _AR_HOSTNAME: europe-west10-docker.pkg.dev
-  REPO_NAME: flight_ai
-  _AR_REPOSITORY: cloud-run-source-deploy
-  _DEPLOY_REGION: europe-west10
-  _PLATFORM: managed
-  _ENTRYPOINT: cloudbuild.yml
-  _AR_PROJECT_ID: able-folio-453710-a6
-  _TRIGGER_ID: d903563e-d991-4d36-b8b2-dba8eab8818e
-# networks:
-#   default:
-#     external:
-#       name: cloudbuild
+  # Step 1: Build images using Docker Compose
+  - name: 'docker/compose:latest'
+    id: 'Build with Docker Compose'
+    args: ['build']
 
-tags:
-  - gcp-cloud-build-deploy-cloud-run
-  - gcp-cloud-build-deploy-cloud-run-managed
-  - flightchat
+  # Step 2: Tag the api service image for GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Tag api image for GCR'
+    args: [
+      'tag', 'backend', 'gcr.io/$PROJECT_ID/flightchat-api:latest'
+    ]
+
+  # Step 3: Tag the web service image for GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Tag web image for GCR'
+    args: [
+      'tag', 'frontend', 'gcr.io/$PROJECT_ID/flightchat-app:latest'
+    ]
+
+  # Step 4: Push the api service image to GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push api image to GCR'
+    args: [
+      'push', 'gcr.io/$PROJECT_ID/my-app-api:latest'
+    ]
+
+  # Step 5: Push the web service image to GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push web image to GCR'
+    args: [
+      'push', 'gcr.io/$PROJECT_ID/my-app-web:latest'
+    ]
+
+  # Step 6: Deploy the api service to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy api service to Cloud Run'
+    args: [
+      'run', 'deploy', 'flightchat-api-service',
+      '--image', 'gcr.io/$PROJECT_ID/flightchat-api:latest',
+      '--platform', 'managed',
+      '--allow-unauthenticated'
+    ]
+
+  # Step 7: Wait for the api service to be ready
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Wait for api service to be ready'
+    args: [
+      'run', 'services', 'describe', 'flightchat-api-service',
+      '--platform', 'managed',
+      '--format', 'value(status.url)'
+    ]
+    waitFor: ['Deploy api service to Cloud Run']
+
+  # Step 8: Deploy the web service to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy web service to Cloud Run'
+    args: [
+      'run', 'deploy', 'flightchat-app-service',
+      '--image', 'gcr.io/$PROJECT_ID/flightchat-app:latest',
+      '--platform', 'managed',
+      '--allow-unauthenticated'
+    ]
+
+# Optional: Specify the Docker registry for images
+images:
+  - 'gcr.io/$PROJECT_ID/flightchat-app:latest'
+  - 'gcr.io/$PROJECT_ID/flightchat-api:latest'
