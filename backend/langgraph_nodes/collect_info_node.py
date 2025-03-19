@@ -3,7 +3,7 @@ from loguru import logger
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from ..schemas import MessageState
+from schemas import MessageState
 
 class InfoCollectionNode:
     def __init__(self, llm):
