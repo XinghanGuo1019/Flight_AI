@@ -3,7 +3,7 @@ from loguru import logger
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 
-from ..schemas import FlightChangeMessage, GeneralMessage
+from ..schemas import Flight_Change, FlightMessage, GeneralMessage, Search_Flight
 
 class SearchNode:
     def __init__(self, llm):
@@ -90,9 +90,9 @@ class SearchNode:
                 raise ValueError("Invalid JSON response from the search node model.")
             
             if url_result.get("flight_url"):
-                new_message = FlightChangeMessage(
+                new_message = FlightMessage(
                     content=url_result.get("content"),
-                    intent_info={"intent": "flight_change", "missing_info": []},
+                    intent_info=Search_Flight,
                     missing_info=[],
                     flight_url=url_result.get("flight_url"),)
             else:

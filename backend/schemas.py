@@ -1,6 +1,6 @@
 #schemas.py
 from datetime import date
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Literal
 from uuid import uuid4
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -17,61 +17,28 @@ class ChatResponse(BaseModel):
     response: str
     session_id: str
     flight_url: str | None = None
-    
-class FlightInfoRequirements(BaseModel):
-    """机票改签所需信息字段定义"""
-    ticket_number: Optional[str] = Field(
-        None,
-        description="机票票号（格式：3字母+10数字，如：ABC12345678）",
-        pattern=r"^[A-Z]{3}\d{10}$"
-    )
-    passenger_birthday: Optional[date] = Field(
-        None,
-        description="乘客出生日期（dd.mm.yyyy）"
-    )
-    departure_airport: Optional[str] = Field(
-        None,
-        description="出发地机场三字码（大写字母，如FRA）",
-        pattern=r"^[A-Z]{3}$"
-    )
-    arrival_airport: Optional[str] = Field(
-        None,
-        description="目的地机场三字码（大写字母，如PEK）",
-        pattern=r"^[A-Z]{3}$"
-    )
-    departure_date: Optional[date] = Field(
-        None,
-        description="出发日期（dd.mm.yyyy）"
-    )
-    return_date: Optional[date] = Field(
-        None,
-        description="返程日期（dd.mm.yyyy）"
-    )
-    adult_passengers: Optional[int] = Field(
-        None,
-        description="成人乘客人数（1-9）",
-        ge=1,
-        le=9
-    )
 
 class BaseMessage(BaseModel):
     content: str
     sender: str = "system"
     def to_dict(self):
         return self.model_dump()
+    
+Flight_Change = "flight_change"
+Search_Flight = "search_flight"
+Other_Intent = "other"
 
-class FlightChangeMessage(BaseMessage):
-    """flight_change 意图专用消息结构"""
-    intent_info: dict  
-    missing_info: List[str]  
+class FlightMessage(BaseMessage):
+    intent_info: Literal["search_flight", "flight_change", "other"] = Other_Intent
+    missing_info: List[str] = []
     flight_url: Optional[str] = None 
 
 class GeneralMessage(BaseMessage):
     """其他意图的通用消息结构"""
-    intent_info: Optional[dict] = None
+    intent_info: Literal["search_flight", "flight_change", "other"] = Other_Intent
 
 # 联合类型（按需选择一种方案）
-MessageType = Union[FlightChangeMessage, GeneralMessage]
+MessageType = Union[FlightMessage, GeneralMessage]
 
 # 状态容器
 class MessageState(BaseModel):
@@ -92,6 +59,7 @@ class MessageState(BaseModel):
             "departure_date",
             "return_date",
             "adult_passengers"
+            "passenger_name"
         ],
         description="缺失信息字段"
     )

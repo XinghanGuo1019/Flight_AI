@@ -3,7 +3,7 @@ from loguru import logger
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from ..schemas import MessageState
+from ..schemas import Flight_Change, MessageState, Search_Flight
 
 class InfoCollectionNode:
     def __init__(self, llm):
@@ -11,33 +11,29 @@ class InfoCollectionNode:
         self.parser = JsonOutputParser()
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a professional flight ticketing specialist, you answer all questions using the language of user input. Your task is to collect the following information from the user: 
-Required Fields:
-- ticket_number: 13-digit ticket number (e.g. ABC1234567890)
-- passenger_birthday: Date in dd.mm.yyyy format
-- departure_airport: IATA 3-letter code
-- arrival_airport: IATA 3-letter code
-- departure_date: Date in yymmdd format
-- return_date: Date in yymmdd or "None"
-- adult_passengers: Number of adults (1-9)
+Required Fields are listed in {missing_info}:
 Current Status:
-Collected Info: {collected_info}
-Missing Fields: {missing_info}
+- Collected Info: {collected_info}
+- Missing Fields: {missing_info}
 Processing Rules:
 1. Analyze the chat history {input} but ONLY extract ALL available information from last round of conversation. If the extraced info can be mapped to the required fields,
    put the mapped info into collected_info and remove the same field from missing_info, so that the chain can keep collecting the remaining fields.
    **VERY IMPORTANT**: try to understand the user's natural language input and map the input to the required fields. 
              Few-shot example, both "my birthday is 1991.10.19" or "I was born on 1991.10.19" should be mapped to "passenger_birthday". 
              Or another example: both "I want to leave on March 5th" or "I fly on March 5th" should be mapped to "departure_date". 
-             The same applies to all other fields: ticket_number, departure_airport, arrival_airport, return_date, adult_passengers.
-             If you are not sure about the mapping, please ask the user for clarification in "response".
+             The same applies to all other fields: ticket_number, departure_airport, arrival_airport, return_date, adult_passengers, passenger_name.
 2. If you mapped departure_date or return_data: Convert any format to yymmdd (e.g. "March 5th" → 240305)
 3. If you mapped departure_airport or arrival_airport:
    - If city name is given (e.g. "I leave from New York") in user's input, provide all airport IATA code for New York  in "response" to user and ask user to specify airport code.
    - Accept only valid IATA codes (e.g. JFK), you as a flight ticketing specialist should check that in your memory.
-4. For ticket numbers: Auto-correct format (e.g. "Abc 123" → ABC1234567890)
-5. If multiple fields are provided in one message, process all simultaneously
-6. **Output MUST be in valid JSON format. Do NOT return plain text.**
-7. If no valid info found, politely ask for specific missing fields in "response" and do not change "collected_info" and "missing_info", but still return the response in JSON format.
+4. If you mapped ticket numbers: Auto-correct format (e.g. "Abc 123" → ABC1234567890)
+5. If you mapped adult_passengers: Convert any format to number (e.g. "two" → 2, or "a couple" → 2, or "I am alone" → 1)
+6. If you mapped passenger_name: Extract the full name from the user's input, and make sure it is in the format of "First Last".
+7. If you mapped passenger_birthday: Convert any format to ddmmyyyy (e.g. "1991.10.19" → 19101991)
+8. If you are not sure about the mapping, please ask the user for clarification in "response" and DO NOT GUESS.
+9. If multiple fields are provided in one message, process all simultaneously
+10. **Output MUST be in valid JSON format. Do NOT return plain text.**
+11. If no valid info found, politely ask for specific missing fields in "response" and do not change "collected_info" and "missing_info", but still return the response in JSON format.
 **Strict JSON Response Format** should be returned and it contains the following fields:
 -"collected_info": a Dict containing the collected information,
 -"missing_info": a List containing the STILL missing information,
@@ -61,13 +57,7 @@ for example, if the user says "my ticket number is ABC1234567890", the ticket_nu
     async def process(self, state: MessageState) -> MessageState:
         print("===Info collection node BEGIN===")
         new_state = state.model_copy(deep=True)
-        new_state.log_state()
-        
-        # # 仅处理用户最新消息
-        # last_msg = next((m for m in reversed(state.messages) if m["sender"] == "user"), None)
-        # if not last_msg:
-        #     return self._gen_next_question(new_state)
-    
+        new_state.log_state()  
         
         # 执行处理
         try:
@@ -95,7 +85,7 @@ for example, if the user says "my ticket number is ABC1234567890", the ticket_nu
                 new_state.messages.append({
                     "content": response,
                     "sender": "system",
-                    "intent_info": {"intent": "flight_change"}
+                    "intent_info": Search_Flight
                 })
   
         except Exception as e:
