@@ -6,3 +6,6 @@ ENV POSTGRES_DB=postgres
 
 COPY create_tables.sql /docker-entrypoint-initdb.d/
 EXPOSE 5432
+
+# docker build -t flight_db
+# docker run -d --name flightbot_db_container -p 5433:5432 flightbot_db
