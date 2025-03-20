@@ -14,7 +14,7 @@ from langgraph_nodes.await_input_node import AwaitingUserInputNode
 from langgraph_nodes.collect_info_node import InfoCollectionNode
 from langgraph_nodes.intent_detection_node import IntentDetectionNode
 from langgraph_nodes.search_node import SearchNode
-from schemas import ChatRequest, ChatResponse, MessageState
+from schemas import ChatRequest, ChatResponse, MessageState, Search_Flight
 from dependencies import get_llm
 from chains.response import create_final_chain
 
