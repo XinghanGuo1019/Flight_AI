@@ -1,0 +1,95 @@
+steps:
+  # Step 1: Build images using Docker Compose
+  - name: 'docker/compose:latest'
+    id: 'Build with Docker Compose'
+    args: ['build']
+
+  # Step 2: Tag the api service image for GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Tag api image for GCR'
+    args: [
+      'tag', 'workspace_backend', 'gcr.io/$_AR_PROJECT_ID/flightchat-api:latest'
+    ]
+
+  # Step 3: Tag the web service image for GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Tag web image for GCR'
+    args: [
+      'tag', 'workspace_frontend', 'gcr.io/$_AR_PROJECT_ID/flightchat-app:latest'
+    ]
+
+  # Step 4: Push the api service image to GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push api image to GCR'
+    args: [
+      'push', 'gcr.io/$_AR_PROJECT_ID/flightchat-api:latest'
+    ]
+
+  # Step 5: Push the web service image to GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push web image to GCR'
+    args: [
+      'push', 'gcr.io/$_AR_PROJECT_ID/flightchat-app:latest'
+    ]
+
+  # Step 6: Deploy the api service to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy api service to Cloud Run'
+    args: [
+      'run', 'deploy', 'flightchat-api-service',
+      '--image', 'gcr.io/$_AR_PROJECT_ID/flightchat-api:latest',
+      '--platform', 'managed',
+      '--region=$_DEPLOY_REGION',
+      '--allow-unauthenticated'
+    ]
+
+  # Step 7: Wait for the api service to be ready
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Wait for api service to be ready'
+    args: [
+      'run', 'services', 'describe', 'flightchat-api-service',
+      '--platform', 'managed',
+      '--region=$_DEPLOY_REGION',
+      '--format', 'value(status.url)'
+    ]
+    waitFor: ['Deploy api service to Cloud Run']
+
+  # Step 8: Deploy the web service to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy web service to Cloud Run'
+    args: [
+      'run', 'deploy', 'flightchat-app-service',
+      '--image', 'gcr.io/$_AR_PROJECT_ID/flightchat-app:latest',
+      '--platform', 'managed',
+      '--region=$_DEPLOY_REGION',
+      '--allow-unauthenticated'
+    ]
+    waitFor: ['Wait for api service to be ready']
+  
+  # Step 9: Wait for the web service to be ready
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Wait for web service to be ready'
+    args: [
+      'run', 'services', 'describe', 'flightchat-app-service',
+      '--platform', 'managed',
+      '--region=$_DEPLOY_REGION',
+      '--format', 'value(status.url)'
+    ]
+    waitFor: ['Deploy web service to Cloud Run']
+
+# Optional: Specify the Docker registry for images
+images:
+  - 'gcr.io/$_AR_PROJECT_ID/flightchat-app:latest'
+  - 'gcr.io/$_AR_PROJECT_ID/flightchat-api:latest'
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _AR_HOSTNAME: europe-west3-docker.pkg.dev
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _TRIGGER_ID: a307fa02-233a-463a-956d-18ab36d69733
+  _AR_PROJECT_ID: able-folio-453710-a6
+  _PLATFORM: managed
+  _SERVICE_NAME: flightbot
+  REPO_NAME: flight_ai
+  _DEPLOY_REGION: europe-west3

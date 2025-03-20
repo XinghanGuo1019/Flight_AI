@@ -4,7 +4,7 @@ from loguru import logger
 from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import AIMessage  # 导入 AIMessage
-from ..schemas import Flight_Change, FlightMessage, GeneralMessage, Search_Flight, Search_Flight, Other_Intent
+from schemas import GeneralMessage
 
 class IntentDetectionNode:
     def __init__(self, llm):
