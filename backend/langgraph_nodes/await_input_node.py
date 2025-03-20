@@ -1,5 +1,5 @@
 # backend/langgraph_nodes/awaiting_user_input_node.py
-from ..schemas import MessageState
+from schemas import MessageState
 from langgraph.types import Command, interrupt
 
 class AwaitingUserInputNode:

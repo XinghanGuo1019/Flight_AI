@@ -8,15 +8,15 @@ from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 from IPython.display import Image, display
-from .auth import get_current_user, router as auth_router
+from auth import get_current_user, router as auth_router
 
-from .langgraph_nodes.await_input_node import AwaitingUserInputNode
-from .langgraph_nodes.collect_info_node import InfoCollectionNode
-from .langgraph_nodes.intent_detection_node import IntentDetectionNode
-from .langgraph_nodes.search_node import SearchNode
-from .schemas import ChatRequest, ChatResponse, Flight_Change, MessageState, Search_Flight
-from .dependencies import get_llm
-from .chains.response import create_final_chain
+from langgraph_nodes.await_input_node import AwaitingUserInputNode
+from langgraph_nodes.collect_info_node import InfoCollectionNode
+from langgraph_nodes.intent_detection_node import IntentDetectionNode
+from langgraph_nodes.search_node import SearchNode
+from schemas import ChatRequest, ChatResponse, MessageState
+from dependencies import get_llm
+from chains.response import create_final_chain
 
 app = FastAPI()
 app.include_router(auth_router)
@@ -208,4 +208,4 @@ async def startup_event():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app", host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)

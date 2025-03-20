@@ -6,7 +6,7 @@ from typing import Annotated, AsyncGenerator
 from fastapi import Depends, HTTPException
 from langchain_openai import ChatOpenAI
 from openai import AsyncOpenAI
-from .config import Settings
+from config import Settings
 
 logger = logging.getLogger(__name__)
 load_dotenv()

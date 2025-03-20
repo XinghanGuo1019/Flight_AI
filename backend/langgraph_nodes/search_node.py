@@ -2,8 +2,7 @@
 from loguru import logger
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-
-from ..schemas import Flight_Change, FlightMessage, GeneralMessage, Search_Flight
+from schemas import GeneralMessage
 
 class SearchNode:
     def __init__(self, llm):
