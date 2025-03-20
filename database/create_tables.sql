@@ -1,8 +1,8 @@
 CREATE TABLE tickets (
-    ticket_id VARCHAR(13) PRIMARY KEY,  -- 票号（主键）
+    ticket_no VARCHAR(13) PRIMARY KEY,  -- 票号（主键）
     passenger_name VARCHAR(50) NOT NULL,  -- 乘客姓名
     birth_date DATE NOT NULL,            -- 生日
-    flight_number VARCHAR(10) NOT NULL,   -- 航班号
+    airline_code VARCHAR(10) NOT NULL,   -- 航班号
     
     -- 去程信息
     departure_airport_code CHAR(3) NOT NULL,  -- 出发机场三字码（如 PEK）
