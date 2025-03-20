@@ -114,14 +114,24 @@ def create_workflow(llm):
             (message for message in reversed(state.messages) if message.get('sender') in {'system', 'assistant'}),
             None
         )
+        last_user_message = next(
+            (message for message in reversed(state.messages) if message.get('sender') in {'user'}),
+            None
+        )
         if last_sys_message:
             intent_info = last_sys_message.get("intent_info", {})
             intent = intent_info.get("intent")
-        if intent == "flight_change":
+        if last_user_message:
+            user_message = last_user_message.get("content", "")
+            print(f"User Message: {user_message}")
+        if intent == "flight_change" and user_message != "Human Assistant":
             if state.missing_info:
                 return "info_collection_node"
             else:
                 return "search_node"
+        elif user_message == "Human Assistant":
+            print("===End of conversation===")
+            return END
         else:
             return "intent_detection_node"
     
@@ -181,8 +191,12 @@ async def chat_endpoint(
             flight_url=new_state.messages[-1].get("flight_url")
         )
     except Exception as e:
-        print(f"Chat error: {str(e)}")
-        raise HTTPException(500, detail=str(e))
+        if isinstance(e, KeyError) and len(e.args) > 0 and e.args[0] == '__end__':
+            return ChatResponse(response="A human assistant will be with you shortly.",
+                session_id=session_id)
+        else:
+            print(f"Chat error: {str(e)}")
+            raise HTTPException(500, detail=str(e))
     
 @app.on_event("startup")
 async def startup_event():
