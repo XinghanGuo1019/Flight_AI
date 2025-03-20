@@ -4,7 +4,7 @@ from loguru import logger
 from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableLambda
 from langchain_core.messages import AIMessage  # 导入 AIMessage
-from ..schemas import FlightChangeMessage, GeneralMessage
+from ..schemas import Flight_Change, FlightMessage, GeneralMessage, Search_Flight, Search_Flight, Other_Intent
 
 class IntentDetectionNode:
     def __init__(self, llm):
@@ -14,22 +14,27 @@ class IntentDetectionNode:
 As a flight ticketing specialist, analyze the conversation history and:
 
 1. **Intent Identification**:
-   - Recognize if the user wants to modify existing flight plans (flight_change)
+   - Recognize if the user wants to modify existing flight plans (Search_Flight)
    - Identify general flight-related questions (other)
    - when making a decision, consider only the conversation context, which is in the 'content', but ignore the 'intent_info' in the message
 
 2. **Response Generation**:
-A) For flight_change intent:
-   - List SPECIFIC missing fields from: [ticket_number, passenger_birthday, departure_date, return_date, adult_passengers, departure_airport, arrival_airport]
+
+A) For "search flight" intent:
+   - List SPECIFIC missing fields from: [departure_date, return_date, adult_passengers, departure_airport, arrival_airport]
    - Generate NATURAL request for missing info using conversation context
 
-B) For other intents:
+B) For "flight change" intent:
+   - List SPECIFIC missing fields from: [ticket_number, passenger_birthday, passenger_name]
+   - Generate NATURAL request for missing info using conversation context
+
+C) For other intents:
    - Create helpful response about flight services
    - Politely decline non-flight related requests
 
 **Strict JSON Response Format**
 {{
-    "intent": "flight_change" | "other",
+    "intent_info": "search_flight" | "flight_change" | "other",
     "missing_info": ["field1", "field2"],  // Use exact field names
     "content": "generated response text"  
 }}
@@ -52,28 +57,23 @@ B) For other intents:
             # 解析 JSON
             data = json.loads(text)
             # 验证并返回结构化数据
-            if data.get("intent") == "flight_change":
+            if data.get("intent_info") == Search_Flight or data.get("intent_info") == Flight_Change:
                 return {
-                    "type": "flight_change",
+                    "intent_info": data.get("intent_info", Other_Intent),
                     "content": data.get("content", ""),
-                    "intent_info": {
-                        "intent": data.get("intent", ""),
-                        "missing_info": data.get("missing_info", [])
-                    },
                     "missing_info": data.get("missing_info", [])
                 }
             else:
                 return {
-                    "type": "general",
                     "content": data.get("content", ""),
-                    "intent_info": {"intent": data.get("intent", "other")}
+                    "intent_info": Other_Intent
                 }
         except Exception as e:
             logger.error(f"Failed to parse LLM output: {e}")
             return {
                 "type": "general",
                 "content": "抱歉，我暂时无法处理您的请求",
-                "intent_info": {"intent": "other"}
+                "intent_info": Other_Intent
             }
 
     async def process(self, state):
@@ -89,11 +89,11 @@ B) For other intents:
         # 确保结果包含所需的键
         if "intent_info" not in raw_output:
             logger.error(f"Missing intent_info in result: {raw_output}")
-            raw_output["intent_info"] = {"intent": "other"}
+            raw_output["intent_info"] = Other_Intent
         
         # 动态创建消息对象
-        if raw_output["type"] == "flight_change":
-            new_message = FlightChangeMessage(
+        if raw_output["intent_info"] == Search_Flight:
+            new_message = FlightMessage(
                 content=raw_output["content"],
                 intent_info=raw_output["intent_info"],
                 missing_info=raw_output.get("missing_info", [])

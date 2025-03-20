@@ -14,7 +14,7 @@ from .langgraph_nodes.await_input_node import AwaitingUserInputNode
 from .langgraph_nodes.collect_info_node import InfoCollectionNode
 from .langgraph_nodes.intent_detection_node import IntentDetectionNode
 from .langgraph_nodes.search_node import SearchNode
-from .schemas import ChatRequest, ChatResponse, MessageState
+from .schemas import ChatRequest, ChatResponse, Flight_Change, MessageState, Search_Flight
 from .dependencies import get_llm
 from .chains.response import create_final_chain
 
@@ -74,10 +74,9 @@ def create_workflow(llm):
         if state.messages[-1]["sender"] != "user":
             return "awaiting_user_input"
         last_message = state.messages[-1] if state.messages else None
-        intent_info = last_message.get("intent_info", {}) if last_message else {}
-        intent = intent_info.get("intent")
-        print(f"Intent Detection: {intent}")
-        if intent == "flight_change":
+        intent_info = last_message.get("intent_info", "") if last_message else ""
+        print(f"Intent Detection: {intent_info}")
+        if intent_info == Search_Flight:
             if state.missing_info:
                 return "info_collection_node"
             else:
@@ -119,12 +118,11 @@ def create_workflow(llm):
             None
         )
         if last_sys_message:
-            intent_info = last_sys_message.get("intent_info", {})
-            intent = intent_info.get("intent")
+            intent_info = last_sys_message.get("intent_info", "")
         if last_user_message:
             user_message = last_user_message.get("content", "")
             print(f"User Message: {user_message}")
-        if intent == "flight_change" and user_message != "Human Assistant":
+        if intent_info == Search_Flight and user_message != "Human Assistant":
             if state.missing_info:
                 return "info_collection_node"
             else:
