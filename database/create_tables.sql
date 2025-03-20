@@ -24,4 +24,4 @@ CREATE TABLE tickets (
 );
 
 -- 添加索引加速查询
-CREATE INDEX idx_ticket_search ON tickets (ticket_id, passenger_name, birth_date);
+CREATE INDEX idx_ticket_search ON tickets (ticket_no, passenger_name, birth_date);
