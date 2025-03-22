@@ -17,10 +17,13 @@ class AwaitingUserInputNode:
         )
         print(f"===User Input: {user_input}===")
         # 恢复执行时处理用户输入（此时user_input为前端传回的值）
+        last_message = state.messages[-1] if state.messages else None
+        intent_info = last_message.get("intent_info", "") if last_message else ""
         return {
             "messages": state.messages + [{
                 "content": user_input,
-                "sender": "user"
+                "sender": "user",
+                "intent_info": intent_info
             }],
             "collected_info": state.collected_info.copy(), 
             "missing_info": state.missing_info.copy() 

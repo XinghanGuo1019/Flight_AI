@@ -1,5 +1,6 @@
 # backend/main.py
 from datetime import datetime
+import os
 from uuid import uuid4
 from typing import Dict, Optional
 from fastapi import FastAPI, HTTPException, Request, Depends
@@ -10,16 +11,22 @@ from langgraph.types import Command
 from IPython.display import Image, display
 from auth import get_current_user, router as auth_router
 
+from langgraph_nodes.verification_node import VerificationNode
 from langgraph_nodes.await_input_node import AwaitingUserInputNode
 from langgraph_nodes.collect_info_node import InfoCollectionNode
 from langgraph_nodes.intent_detection_node import IntentDetectionNode
 from langgraph_nodes.search_node import SearchNode
-from schemas import ChatRequest, ChatResponse, MessageState, Search_Flight
+from schemas import ChatRequest, ChatResponse, Flight_Change, MessageState, Search_Flight
 from dependencies import get_llm
 from chains.response import create_final_chain
 
 app = FastAPI()
 app.include_router(auth_router)
+db_host = os.getenv("DB_HOST", "localhost")
+db_name = os.getenv("DB_NAME", "flight_ticket_db")
+db_user = os.getenv("DB_USER", "postgres")
+db_password = os.getenv("DB_PASSWORD", "")
+db_port = int(os.getenv("DB_PORT", 5432))
 
 @app.get("/")
 def read_root():
@@ -61,6 +68,7 @@ def create_workflow(llm):
         "search_node": SearchNode(llm).process,
         "info_collection_node": InfoCollectionNode(llm).process,
         "awaiting_user_input": AwaitingUserInputNode().process,
+        "verification_node": VerificationNode(db_host, db_name, db_user, db_password, db_port).process
     }
     for node_id, node_func in nodes.items():
         builder.add_node(node_id, node_func)
@@ -95,14 +103,20 @@ def create_workflow(llm):
     )
     
     def info_collection_complete(state: MessageState):
+        last_message = state.messages[-1] if state.messages else None
+        intent_info = last_message.get("intent_info", "") if last_message else ""
         if not state.missing_info:
-            return "search_node"
+            if intent_info == Search_Flight:
+                return "search_node"
+            elif intent_info == Flight_Change:
+                return "verification_node"
         return "awaiting_user_input"
     
     builder.add_conditional_edges(
         "info_collection_node",
         info_collection_complete,
         {
+            "verification_node": "verification_node",
             "search_node": "search_node",
             "awaiting_user_input": "awaiting_user_input"
         }
@@ -122,7 +136,7 @@ def create_workflow(llm):
         if last_user_message:
             user_message = last_user_message.get("content", "")
             print(f"User Message: {user_message}")
-        if intent_info == Search_Flight and user_message != "Human Assistant":
+        if intent_info == Search_Flight or intent_info == Flight_Change and user_message != "Human Assistant":
             if state.missing_info:
                 return "info_collection_node"
             else:

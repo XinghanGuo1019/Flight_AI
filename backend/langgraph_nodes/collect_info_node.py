@@ -58,7 +58,8 @@ for example, if the user says "my ticket number is ABC1234567890", the ticket_nu
         print("===Info collection node BEGIN===")
         new_state = state.model_copy(deep=True)
         new_state.log_state()  
-        
+        last_message = state.messages[-1] if state.messages else None
+        intent_info = last_message.get("intent_info", "") if last_message else ""
         # 执行处理
         try:
             try:
@@ -85,7 +86,7 @@ for example, if the user says "my ticket number is ABC1234567890", the ticket_nu
                 new_state.messages.append({
                     "content": response,
                     "sender": "system",
-                    "intent_info": Search_Flight
+                    "intent_info": intent_info
                 })
   
         except Exception as e:

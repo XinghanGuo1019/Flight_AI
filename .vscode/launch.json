@@ -1,12 +1,11 @@
 {
   "version": "0.2.0",
   "configurations": [
-    
     {
       "name": "Debug FastAPI",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/start.py",
+      "program": "${workspaceFolder}/backend/main.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"
     }
