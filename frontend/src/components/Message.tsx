@@ -12,7 +12,7 @@ const Message: React.FC<MessageProps> = ({ sender, text, flightUrl }) => {
   return (
     <div className={`message ${sender}`}>
       <div className="message-content">
-        {text}
+        <div dangerouslySetInnerHTML={{ __html: text }} />
         {flightUrl && (
           <a href={flightUrl} target="_blank" rel="noopener noreferrer">
             See flight details

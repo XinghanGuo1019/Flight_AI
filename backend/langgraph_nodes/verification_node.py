@@ -1,10 +1,12 @@
+import json
 import os
-import psycopg2
+from typing import Dict, List
 from dotenv import load_dotenv
+import openai
+import psycopg2
 from schemas import Flight_Change, MessageState
 
-# 加载环境变量
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '../.env'))
 
 class VerificationNode:
     def __init__(self, db_host, db_name, db_user, db_password, db_port=5432):
@@ -13,6 +15,66 @@ class VerificationNode:
         self.db_user = db_user
         self.db_password = db_password
         self.db_port = db_port
+        self.client = openai.OpenAI(api_key=os.getenv("CHAT_GPT_KEY"))
+        self.model_id = os.getenv("CHAT_GPT_MODEL")
+
+    def _call_gpt(self, columns: List[str], result: tuple, user_message: str) -> Dict:
+        """Call OpenAI API to generate single formatted message"""
+        # Build field descriptions
+        field_str = "\n".join([f"{col}: {val}" for col, val in zip(columns, result)])
+        
+        prompt = f"""Generate a SINGLE verification message containing:
+1. Natural language confirmation or rejection in user's language
+2. Structured details section after two newlines
+
+The input data is as follows:
+-Database results:{field_str}
+-User's last message: "{user_message}"
+
+Requirements:
+- If Database results is empty, means Verification failed and No matching ticket found. Generate a message accordingly.
+- If Database results is not empty, means Verification successful and matching ticket found. Generate a message by following the below requirements.
+- Use user's last message to determine the language of the confirmation message
+- Use airport full names (e.g. PVG → Shanghai Pudong International Airport)
+- Localize dates/times based on user's message language
+- Format currency as USD with proper symbols
+- Use Markdown formatting for details section
+- Maintain original field names in details
+- For React JSX compatibility, use <br/><br/> between confirmation and details
+- Use <br/> before each detail item instead of newlines
+
+Output JSON format:
+{{
+    "content": "Natural language confirmation message...<br/><br/>**Ticket Details**<br/>- Field1: Value1<br/>- Field2: Value2...",
+    "sender": "system",
+    "intent_info": "Flight_Change"
+}}"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model_id,
+                messages=[
+                    {"role": "system", "content": "You are a flight ticketing assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                response_format={"type": "json_object"}
+            )
+            
+            message = json.loads(response.choices[0].message.content)
+            
+            # 验证必要字段
+            required_keys = ["content", "sender", "intent_info"]
+            if not all(k in message for k in required_keys):
+                raise ValueError(f"Missing required keys: {required_keys}")
+                
+            return message
+        except Exception as e:
+            return {
+                "content": f"Verification successful. Display limited: {str(e)}",
+                "sender": "system",
+                "intent_info": Flight_Change
+            }
 
     def process(self, state: MessageState) -> MessageState:
         # 从 collected_info 中提取验证所需字段
@@ -65,24 +127,16 @@ class VerificationNode:
         try:
             cursor.execute(query, (ticket_number, passenger_birthday, passenger_name))
             result = cursor.fetchone()
-            if result:
-            # 使用 cursor.description 获取列名，并构造字典
-                columns = [desc[0] for desc in cursor.description]
-                ticket_info = dict(zip(columns, result))
-            # 将数据库中的信息更新到 collected_info
-                new_state.collected_info.update(ticket_info)
-                new_state.messages.append({
-                    "content": f"Verification successful: Ticket found. Details: {ticket_info}",
-                    "sender": "system",
-                    "intent_info": Flight_Change})
-            else:
-                new_state.messages.append({
-                    "content": "Verification failed: Ticket not found in the database.",
-                    "sender": "system",
-                    "intent_info": Flight_Change})
+                # Get column names from cursor description
+            columns = [desc[0] for desc in cursor.description]
+                # Get last user message
+            user_messages = [msg for msg in new_state.messages if msg["sender"] == "user"]
+            last_user_msg = user_messages[-1]["content"] if user_messages else ""
+                # Generate complete message through GPT
+            gpt_message = self._call_gpt(columns, result, last_user_msg)               
+                # Directly append the generated message
+            new_state.messages.append(gpt_message)
         except Exception as e:
-            cursor.close()
-            connection.close()
             new_state.messages.append( f"Database query error: {str(e)}")
 
         finally:
