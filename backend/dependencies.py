@@ -35,8 +35,8 @@ def get_llm() -> ChatOpenAI:
         api_key=os.getenv("OPENAI_API_KEY"),
         base_url=os.getenv("LLM_URL"),
         model=os.getenv("LLM_MODEL"),
-        temperature=0.5,
-        max_tokens=2048
+        temperature=0.1,
+        max_tokens=4096
     )
 
 async def get_async_client() -> AsyncGenerator[AsyncOpenAI, None]:

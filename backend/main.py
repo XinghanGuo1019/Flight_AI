@@ -11,12 +11,13 @@ from langgraph.types import Command
 from IPython.display import Image, display
 from auth import get_current_user, router as auth_router
 
+from langgraph_nodes.alternative_ticket_node import AlternativeTicketNode
 from langgraph_nodes.verification_node import VerificationNode
 from langgraph_nodes.await_input_node import AwaitingUserInputNode
 from langgraph_nodes.collect_info_node import InfoCollectionNode
 from langgraph_nodes.intent_detection_node import IntentDetectionNode
 from langgraph_nodes.search_node import SearchNode
-from schemas import ChatRequest, ChatResponse, Flight_Change, MessageState, Search_Flight
+from schemas import ChatRequest, ChatResponse, Flight_Change, MessageState, Search_Alternative, Search_Flight
 from dependencies import get_llm
 from chains.response import create_final_chain
 
@@ -68,13 +69,16 @@ def create_workflow(llm):
         "search_node": SearchNode(llm).process,
         "info_collection_node": InfoCollectionNode(llm).process,
         "awaiting_user_input": AwaitingUserInputNode().process,
-        "verification_node": VerificationNode(db_host, db_name, db_user, db_password, db_port).process
+        "verification_node": VerificationNode(db_host, db_name, db_user, db_password, db_port).process,
+        "alternative_ticket_node": AlternativeTicketNode(llm, db_host, db_name, db_user, db_password, db_port).process
     }
     for node_id, node_func in nodes.items():
         builder.add_node(node_id, node_func)
 
     # 设置入口点
     builder.set_entry_point("intent_detection_node")
+    builder.add_edge("verification_node", "awaiting_user_input")
+    builder.add_edge("alternative_ticket_node", "awaiting_user_input")
     builder.add_edge("search_node", END)
     
     # 条件路由逻辑
@@ -141,6 +145,8 @@ def create_workflow(llm):
                 return "info_collection_node"
             else:
                 return "search_node"
+        elif intent_info == Search_Alternative and user_message != "Human Assistant":
+            return "alternative_ticket_node"
         elif user_message == "Human Assistant":
             print("===End of conversation===")
             return END
@@ -153,9 +159,26 @@ def create_workflow(llm):
         {
             "info_collection_node": "info_collection_node",
             "search_node": "search_node",
-            "intent_detection_node": "intent_detection_node"
+            "intent_detection_node": "intent_detection_node",
+            "alternative_ticket_node": "alternative_ticket_node",
         }
     )
+
+    # def verification_complete(state: MessageState):
+    #     last_message = state.messages[-1] if state.messages else None
+    #     intent_info = last_message.get("intent_info", "") if last_message else ""
+    #     if intent_info == Flight_Change:
+    #         return "awaiting_user_input"
+    #     elif intent_info == Search_Alternative:
+    #         return "alternative_ticket_node"
+    # builder.add_conditional_edges(
+    #     "verification_node",
+    #     verification_complete,
+    #     {
+    #         "awaiting_user_input": "awaiting_user_input",
+    #         "alternative_ticket_node": "alternative_ticket_node"
+    #     }
+    # )
     
     workflow = builder.compile(checkpointer=memory)
     try:

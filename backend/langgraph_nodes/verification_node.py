@@ -21,19 +21,21 @@ class VerificationNode:
     def _call_gpt(self, columns: List[str], result: tuple, user_message: str) -> Dict:
         """Call OpenAI API to generate single formatted message"""
         # Build field descriptions
-        field_str = "\n".join([f"{col}: {val}" for col, val in zip(columns, result)])
+        if result:
+            field_str = "\n".join([f"{col}: {val}" for col, val in zip(columns, result)])
         
         prompt = f"""Generate a SINGLE verification message containing:
-1. Natural language confirmation or rejection in user's language
-2. Structured details section after two newlines
+1. Natural language confirmation or rejection in user's language.
+2. If verification successful, ask user to what they would like to change for the current ticket. (eg. date, time, airport, etc.)
+3. Structured details section after two newlines
 
 The input data is as follows:
 -Database results:{field_str}
 -User's last message: "{user_message}"
 
 Requirements:
-- If Database results is empty, means Verification failed and No matching ticket found. Generate a message accordingly.
-- If Database results is not empty, means Verification successful and matching ticket found. Generate a message by following the below requirements.
+- If Database results is empty, means Verification failed and No matching ticket found. Generate a message to inform user about the failure and ask user to re-input the "ticket_number", "passenger_birthday", "passenger_name" accordingly and ""intent_info"" should be "flight_change".
+- If Database results is not empty, means Verification successful and matching ticket found. Generate a message by following the below requirements and ""intent_info"" should be "search_alternative".
 - Use user's last message to determine the language of the confirmation message
 - Use airport full names (e.g. PVG → Shanghai Pudong International Airport)
 - Localize dates/times based on user's message language
@@ -47,7 +49,7 @@ Output JSON format:
 {{
     "content": "Natural language confirmation message...<br/><br/>**Ticket Details**<br/>- Field1: Value1<br/>- Field2: Value2...",
     "sender": "system",
-    "intent_info": "Flight_Change"
+    "intent_info": "flight_change" or "search_alternative"
 }}"""
 
         try:
@@ -135,7 +137,14 @@ Output JSON format:
                 # Generate complete message through GPT
             gpt_message = self._call_gpt(columns, result, last_user_msg)               
                 # Directly append the generated message
+            print(f"After Verification Intent: {gpt_message["intent_info"]}")
             new_state.messages.append(gpt_message)
+            if result:
+                new_state.collected_info.update(
+                {col: val for col, val in zip(columns, result)})
+            else:
+                new_state.missing_info = ["ticket_number", "passenger_birthday", "passenger_name"]
+                new_state.collected_info = {}
         except Exception as e:
             new_state.messages.append( f"Database query error: {str(e)}")
 

@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 # 配置密钥、算法和令牌有效期
 SECRET_KEY = "your_secret_key_here" # 生产环境中请替换为随机字符串
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 480
 
 router = APIRouter()
 
