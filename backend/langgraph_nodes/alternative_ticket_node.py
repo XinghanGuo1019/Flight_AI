@@ -60,6 +60,7 @@ class AlternativeTicketNode:
         3. Strictly follow data format provided in the Original Ticket info
         4. Include mandatory WHERE conditions
         5. Do not use airline_code or any time information to do the SQL 'WHERE' query, unless user input specifies like "I want to depart earlier that day".
+        6. No INSERT, UPDATE, DELETE, or JOIN operations are allowed, only SELECT.
         
         **Output ONLY the PostgreSQL statement with ABSOLUTELY no other information.**"""
         
@@ -122,8 +123,8 @@ class AlternativeTicketNode:
         """生成结果解读消息"""
         prompt_template = """
         Generate a SINGLE analysis message containing:
-        1. Natural language summary in user's language, and ask if the user if the showed alternative ticket is what they are looking for, if there are several alternatives, ask the user to specify which one they want to book.
-        2. Show available options count
+        1. Natural language summary in user's language, and ask if the user if the showed alternative ticket is what they are looking for, if there are several alternatives, ask the user to specify which one they want to book, and in the intent_info, you need to put "alternative_found".
+        2. If there is no alternative ticket found, you need to ask user for other options, and in the intent_info, you need to put "no_alternative".
         3. Highlight best matches, analyze the Original Ticket info and compare with Sample Data and summarize the changes (highlighted in bold, be aware that the content only recognizes the html tags)
         4. Structured details section after two newlines
 
@@ -136,8 +137,7 @@ class AlternativeTicketNode:
         Requirements:
         - Use airport full names (e.g., JFK → John F. Kennedy International Airport)
         - Localize dates/times based on user's language
-        - Format currency as USD (e.g., $450.00)
-        - Use Markdown formatting for details
+        - Format currency as USD (e.g., $450.00) and specify the price difference compared to the original ticket
         - For React compatibility:
           - Use <br/><br/> between sections
           - Use <br/> for line breaks
@@ -147,7 +147,7 @@ class AlternativeTicketNode:
         {{
             "content": "Summary text...<br/><br/>**Options**<br/>- Field1: Value1<br/>- ...",
             "sender": "system",
-            "intent_info": "Alternative_Flight"
+            "intent_info": "alternative_found" | "no_alternative" 
         }}"""
         
         sample_data = results[:1] if results else [] 

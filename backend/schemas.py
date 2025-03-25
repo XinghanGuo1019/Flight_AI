@@ -27,10 +27,13 @@ class BaseMessage(BaseModel):
 Flight_Change = "flight_change"
 Search_Flight = "search_flight"
 Search_Alternative = "search_alternative"
+Alternative_Found = "alternative_found"
+No_Alternative = "no_alternative"
+Change_Confirmed = "change_confirmed"
 Other_Intent = "other"
 
 class FlightMessage(BaseMessage):
-    intent_info: Literal["search_flight", "flight_change", "search_alternative", "other"] = Other_Intent
+    intent_info: Literal["search_flight", "flight_change", "search_alternative", "alternative_found", "no_alternative", "change_confirmed" "other"] = Other_Intent
     missing_info: List[str] = []
     flight_url: Optional[str] = None 
 

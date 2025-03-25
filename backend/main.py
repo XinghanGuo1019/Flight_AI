@@ -11,13 +11,14 @@ from langgraph.types import Command
 from IPython.display import Image, display
 from auth import get_current_user, router as auth_router
 
+from langgraph_nodes.confirmation_node import ConfirmationNode
 from langgraph_nodes.alternative_ticket_node import AlternativeTicketNode
 from langgraph_nodes.verification_node import VerificationNode
 from langgraph_nodes.await_input_node import AwaitingUserInputNode
 from langgraph_nodes.collect_info_node import InfoCollectionNode
 from langgraph_nodes.intent_detection_node import IntentDetectionNode
 from langgraph_nodes.search_node import SearchNode
-from schemas import ChatRequest, ChatResponse, Flight_Change, MessageState, Search_Alternative, Search_Flight
+from schemas import Alternative_Found, Change_Confirmed, ChatRequest, ChatResponse, Flight_Change, MessageState, No_Alternative, Search_Alternative, Search_Flight
 from dependencies import get_llm
 from chains.response import create_final_chain
 
@@ -70,7 +71,8 @@ def create_workflow(llm):
         "info_collection_node": InfoCollectionNode(llm).process,
         "awaiting_user_input": AwaitingUserInputNode().process,
         "verification_node": VerificationNode(db_host, db_name, db_user, db_password, db_port).process,
-        "alternative_ticket_node": AlternativeTicketNode(llm, db_host, db_name, db_user, db_password, db_port).process
+        "alternative_ticket_node": AlternativeTicketNode(llm, db_host, db_name, db_user, db_password, db_port).process,
+        "confirmation_node": ConfirmationNode(llm).process,
     }
     for node_id, node_func in nodes.items():
         builder.add_node(node_id, node_func)
@@ -143,10 +145,14 @@ def create_workflow(llm):
         if intent_info == Search_Flight or intent_info == Flight_Change and user_message != "Human Assistant":
             if state.missing_info:
                 return "info_collection_node"
-            else:
-                return "search_node"
+            elif intent_info == Flight_Change and not state.missing_info:
+                return "verification_node"
         elif intent_info == Search_Alternative and user_message != "Human Assistant":
             return "alternative_ticket_node"
+        elif intent_info == Alternative_Found and user_message != "Human Assistant":
+            return "confirmation_node"
+        elif intent_info == No_Alternative and user_message != "Human Assistant":
+            return "verification_node"
         elif user_message == "Human Assistant":
             print("===End of conversation===")
             return END
@@ -161,24 +167,26 @@ def create_workflow(llm):
             "search_node": "search_node",
             "intent_detection_node": "intent_detection_node",
             "alternative_ticket_node": "alternative_ticket_node",
+            "confirmation_node": "confirmation_node",
+            "verification_node": "verification_node",
         }
     )
 
-    # def verification_complete(state: MessageState):
-    #     last_message = state.messages[-1] if state.messages else None
-    #     intent_info = last_message.get("intent_info", "") if last_message else ""
-    #     if intent_info == Flight_Change:
-    #         return "awaiting_user_input"
-    #     elif intent_info == Search_Alternative:
-    #         return "alternative_ticket_node"
-    # builder.add_conditional_edges(
-    #     "verification_node",
-    #     verification_complete,
-    #     {
-    #         "awaiting_user_input": "awaiting_user_input",
-    #         "alternative_ticket_node": "alternative_ticket_node"
-    #     }
-    # )
+    def after_confirmation(state: MessageState):
+        last_message = state.messages[-1] if state.messages else None
+        intent_info = last_message.get("intent_info", "") if last_message else ""
+        if intent_info == Flight_Change:
+            return "awaiting_user_input"
+        elif intent_info == Change_Confirmed:
+            return END
+    builder.add_conditional_edges(
+        "confirmation_node",
+        after_confirmation,
+        {
+            "awaiting_user_input": "awaiting_user_input",
+            END: END
+        }
+    )
     
     workflow = builder.compile(checkpointer=memory)
     try:

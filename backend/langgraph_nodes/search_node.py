@@ -42,6 +42,7 @@ class SearchNode:
      ```json
      {{
        "content": "Your flight search URL has been successfully generated. Click the link to view available flights.",
+       "sender": "system",
        "flight_url": "https://www.skyscanner.de/transport/flights/FRA/PEK/250903/250925/?adultv2=1&cabinclass=economy"
      }}
      ```
@@ -49,6 +50,7 @@ class SearchNode:
      ```json
      {{
        "content": "Error: The return date is missing. Please provide a valid return date or set it to 'None'.",
+       "sender": "system",
        "flight_url": null
      }}
      ```

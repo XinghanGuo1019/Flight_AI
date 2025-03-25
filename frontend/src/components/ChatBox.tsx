@@ -26,19 +26,33 @@ const ChatBox: React.FC<ChatBoxProps> = ({ token }) => {
   const [session_id, setSessionId] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
+  const handleSendMessage = (message: string) => {
+    const userMessageObj: ChatMessage = {
+      sender: "user",
+      text: message,
+      isAwaitSignal: true,
+    };
+
+    setMessages((prev) => [...prev, userMessageObj]);
+    handleSend(message); // 复用现有的发送逻辑
+  };
+
+  // 修改后的handleSend方法
   const handleSend = async (userMessage: string) => {
     try {
-      const userMessageObj: ChatMessage = {
-        sender: "user",
-        text: userMessage,
-      };
-
-      const tempMessages = [...messages, userMessageObj];
-      setMessages(tempMessages);
+      // 如果消息是系统自动生成的，跳过添加临时消息
+      if (
+        !messages.some((msg) => msg.isAwaitSignal && msg.text === userMessage)
+      ) {
+        const userMessageObj: ChatMessage = {
+          sender: "user",
+          text: userMessage,
+        };
+        setMessages((prev) => [...prev, userMessageObj]);
+      }
 
       const response = await axios.post<ChatResponse>(
         "http://localhost:8000/chat",
-        //"https://flightchat-api-service-583966147612.europe-west3.run.app/chat",
         { message: userMessage, session_id: session_id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -46,17 +60,17 @@ const ChatBox: React.FC<ChatBoxProps> = ({ token }) => {
       const { data } = response;
       setSessionId(data.session_id);
 
-      const assistantMessages: ChatMessage[] = [];
+      // 处理系统响应
       if (data.response !== "SYSTEM_AWAIT_NEXT_INPUT") {
-        assistantMessages.push({
-          sender: "assistant",
-          text: data.response,
-          flightUrl: data.flight_url,
-        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            sender: "assistant",
+            text: data.response,
+            flightUrl: data.flight_url,
+          },
+        ]);
       }
-
-      const finalMessages = [...tempMessages, ...assistantMessages];
-      setMessages(finalMessages);
 
       if (data.flight_url) {
         window.open(data.flight_url, "_blank");
@@ -65,7 +79,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({ token }) => {
       console.error("API 通信失败:", error);
       setMessages((prev) => [
         ...prev,
-        { sender: "assistant", text: "服务暂时不可用，请稍后重试" },
+        { sender: "assistant", text: "Service not available" },
       ]);
     }
   };
@@ -79,10 +93,15 @@ const ChatBox: React.FC<ChatBoxProps> = ({ token }) => {
             sender={msg.sender}
             text={msg.text}
             flightUrl={msg.flightUrl}
+            onSendMessage={handleSendMessage} // 传递回调函数
           />
         ))}
       </div>
-      <MessageInput onSend={handleSend} disabled={false} placeholder={""} />
+      <MessageInput
+        onSend={handleSend}
+        disabled={false}
+        placeholder={"Type your message..."}
+      />
     </div>
   );
 };

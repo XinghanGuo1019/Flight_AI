@@ -36,7 +36,8 @@ C) For other intents:
 {{
     "intent_info": "search_flight" | "flight_change" | "other",
     "missing_info": ["field1", "field2"],  // Use exact field names
-    "content": "generated response text"  
+    "content": "generated response text" 
+    "sender": "system"
 }}
 
 **Conversation History**
