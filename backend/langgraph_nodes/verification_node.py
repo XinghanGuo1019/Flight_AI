@@ -146,7 +146,7 @@ Output JSON format:
                 new_state.missing_info = ["ticket_number", "passenger_birthday", "passenger_name"]
                 new_state.collected_info = {}
         except Exception as e:
-            new_state.messages.append( f"Database query error: {str(e)}")
+            new_state.messages.append({"content": f"Database query error: {str(e)}", "sender": "system"})
 
         finally:
             if 'cursor' in locals(): cursor.close()

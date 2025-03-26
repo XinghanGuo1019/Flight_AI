@@ -84,7 +84,7 @@ def create_workflow(llm):
     builder.add_edge("search_node", END)
     
     # 条件路由逻辑
-    def route_logic(state: MessageState):
+    def after_intent_detection(state: MessageState):
         if state.messages[-1]["sender"] != "user":
             return "awaiting_user_input"
         last_message = state.messages[-1] if state.messages else None
@@ -93,17 +93,14 @@ def create_workflow(llm):
         if intent_info == Search_Flight:
             if state.missing_info:
                 return "info_collection_node"
-            else:
-                return "search_node"
         else:
             return "awaiting_user_input"
     
     builder.add_conditional_edges(
         "intent_detection_node",
-        route_logic,
+        after_intent_detection,
         {
             "info_collection_node": "info_collection_node",
-            "search_node": "search_node",
             "awaiting_user_input": "awaiting_user_input"
         }
     )
@@ -142,16 +139,22 @@ def create_workflow(llm):
         if last_user_message:
             user_message = last_user_message.get("content", "")
             print(f"User Message: {user_message}")
-        if intent_info == Search_Flight or intent_info == Flight_Change and user_message != "Human Assistant":
+        if intent_info == Search_Flight or intent_info == Flight_Change and user_message != "Human Assistant":      
+            # intent is to change flight or search for a flight
             if state.missing_info:
-                return "info_collection_node"
+                #continue to collect missing information
+                return "info_collection_node"                                                                       
             elif intent_info == Flight_Change and not state.missing_info:
+                #no missing information and intent is to change flight (this is for the case where the user returns from no alternative found)
                 return "verification_node"
         elif intent_info == Search_Alternative and user_message != "Human Assistant":
+            #after user specify how they want to search for alternative ticket
             return "alternative_ticket_node"
         elif intent_info == Alternative_Found and user_message != "Human Assistant":
+            #when a list of alternative tickets is presented to the user
             return "confirmation_node"
         elif intent_info == No_Alternative and user_message != "Human Assistant":
+            #when there is no alternative ticket found, return to get further user input
             return "verification_node"
         elif user_message == "Human Assistant":
             print("===End of conversation===")

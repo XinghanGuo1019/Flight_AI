@@ -59,7 +59,7 @@ class AlternativeTicketNode:
            But do not use all the information in the Original Ticket info to generate SQL, otherwise you won't find any alternative. You need to be smart to find out which information is important to find the best matching alternative tickets
         3. Strictly follow data format provided in the Original Ticket info
         4. Include mandatory WHERE conditions
-        5. Do not use airline_code or any time information to do the SQL 'WHERE' query, unless user input specifies like "I want to depart earlier that day".
+        5. Do not use airline_code or any time information or price to do the SQL 'WHERE' query, unless user input specifies like "I want to depart earlier that day" or "I want a cheaper flight".
         6. No INSERT, UPDATE, DELETE, or JOIN operations are allowed, only SELECT.
         
         **Output ONLY the PostgreSQL statement with ABSOLUTELY no other information.**"""
