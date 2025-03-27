@@ -67,7 +67,7 @@ class AlternativeTicketNode:
         self.sql_prompt = PromptTemplate.from_template(sql_template)
         self.sql_chain = self.sql_prompt | self.llm | RunnableLambda(self._parse_output)
 
-    async def process(self, state: dict) -> dict:
+    def process(self, state: dict) -> dict:
         logger.info("====== AlternativeTicketNode Start =====")
         new_state = state.copy(deep=True)
         
@@ -81,7 +81,7 @@ class AlternativeTicketNode:
                 "messages": messages
             }
             
-            raw_sql = await self.sql_chain.ainvoke(sql_input)
+            raw_sql = self.sql_chain.invoke(sql_input)
             print(f"Generated SQL: {raw_sql}")
 
             # Step 2: 执行SQL
@@ -103,7 +103,7 @@ class AlternativeTicketNode:
                 raise
 
             # Step 3: 生成解读消息
-            interpretation = await self._generate_interpretation(
+            interpretation = self._generate_interpretation(
                 columns=columns,
                 results=results,
                 collected_info=collected_info
@@ -119,7 +119,7 @@ class AlternativeTicketNode:
             })
             return new_state
 
-    async def _generate_interpretation(self, columns, results, collected_info):
+    def _generate_interpretation(self, columns, results, collected_info):
         """生成结果解读消息"""
         prompt_template = """
         Generate a SINGLE analysis message containing:
@@ -158,7 +158,7 @@ class AlternativeTicketNode:
             collected_info=collected_info
         )
         
-        response = await self.llm.ainvoke(prompt)
+        response = self.llm.invoke(prompt)
         text = response.content
         text = text.replace("```json", "")
         text = text.replace("```", "")

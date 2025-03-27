@@ -64,7 +64,7 @@ class SearchNode:
         self.parser = JsonOutputParser()
         self.url_chain = self.url_prompt | llm | self.parser
 
-    async def process(self, state: dict) -> dict:
+    def process(self, state: dict) -> dict:
         print("====== SearchNode Begin ======")
         # 创建新状态副本
         new_state = state.copy(deep=True)
@@ -72,18 +72,30 @@ class SearchNode:
         # 准备URL生成所需信息
         collected_info = new_state.collected_info
         print(f"Collected Info: {collected_info}")
-        # 生成URL
+        required_fields = ['departure_airport', 'arrival_airport', 'departure_date']
+        for field in required_fields:
+          if not collected_info.get(field):  # 如果字段缺失或为空
+            if field not in new_state.missing_info:
+              new_state.missing_info.append(field)
+        
+        if new_state.missing_info:
+            missing_info_msg = "Please provide the following missing information: " + ", ".join(new_state.missing_info)
+            new_state["messages"].append({
+                "content": missing_info_msg,
+                "sender": "system"
+            })
+            return new_state
         url_input = {
             "departure_airport": collected_info['departure_airport'],
             "arrival_airport": collected_info['arrival_airport'],
             "departure_date": collected_info['departure_date'],
-            "return_date": collected_info['return_date'],  
-            "adult_passengers": collected_info['adult_passengers']
+            "return_date": collected_info.get('return_date', ''), 
+            "adult_passengers": collected_info.get('adult_passengers', 1)
         }
 
         try:
             # 调用大模型生成URL
-            url_result = await self.url_chain.ainvoke(url_input)
+            url_result = self.url_chain.invoke(url_input)
             print(f"Generated URL Result: {url_result}")
 
             # 检查URL生成结果

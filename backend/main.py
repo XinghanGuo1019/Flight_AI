@@ -11,6 +11,7 @@ from langgraph.types import Command
 from IPython.display import Image, display
 from auth import get_current_user, router as auth_router
 
+from langgraph_nodes.restart_node import RestartNode
 from langgraph_nodes.confirmation_node import ConfirmationNode
 from langgraph_nodes.alternative_ticket_node import AlternativeTicketNode
 from langgraph_nodes.verification_node import VerificationNode
@@ -70,9 +71,10 @@ def create_workflow(llm):
         "search_node": SearchNode(llm).process,
         "info_collection_node": InfoCollectionNode(llm).process,
         "awaiting_user_input": AwaitingUserInputNode().process,
-        "verification_node": VerificationNode(db_host, db_name, db_user, db_password, db_port).process,
+        "verification_node": VerificationNode(llm, db_host, db_name, db_user, db_password, db_port).process,
         "alternative_ticket_node": AlternativeTicketNode(llm, db_host, db_name, db_user, db_password, db_port).process,
         "confirmation_node": ConfirmationNode(llm).process,
+        "restart_node": RestartNode().process
     }
     for node_id, node_func in nodes.items():
         builder.add_node(node_id, node_func)
@@ -81,8 +83,8 @@ def create_workflow(llm):
     builder.set_entry_point("intent_detection_node")
     builder.add_edge("verification_node", "awaiting_user_input")
     builder.add_edge("alternative_ticket_node", "awaiting_user_input")
-    builder.add_edge("search_node", END)
-    
+    builder.add_edge("search_node", "restart_node")
+    builder.add_edge("restart_node", "awaiting_user_input")
     # 条件路由逻辑
     def after_intent_detection(state: MessageState):
         if state.messages[-1]["sender"] != "user":
@@ -202,7 +204,7 @@ def create_workflow(llm):
     return workflow
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(
+def chat_endpoint(
     request: ChatRequest,
     current_user: dict = Depends(get_current_user)  # 验证令牌
 ):
@@ -220,12 +222,12 @@ async def chat_endpoint(
                 collected_info={},
                 missing_info=[],
             )
-            result = await app.state.workflow.ainvoke(
+            result = app.state.workflow.invoke(
                 state.dict(),
                 config={"configurable": {"thread_id": session_id, "recursion_limit": 20}}
             )
         else:
-            result = await app.state.workflow.ainvoke(
+            result = app.state.workflow.invoke(
                 Command(resume=request.message),
                 config={"configurable": {"thread_id": session_id}}
             )

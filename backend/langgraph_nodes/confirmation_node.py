@@ -44,7 +44,7 @@ class ConfirmationNode:
         self.parser = JsonOutputParser()
         self.confirmation_chain = self.confirmation_prompt | llm | self.parser
 
-    async def process(self, state: dict) -> dict:
+    def process(self, state: dict) -> dict:
         print("====== ConfirmationNode Begin =====")
         new_state = state.copy(deep=True)
         try:
@@ -53,7 +53,7 @@ class ConfirmationNode:
             }
 
             # 调用大模型生成响应
-            result = await self.confirmation_chain.ainvoke(chain_input)
+            result = self.confirmation_chain.invoke(chain_input)
             new_state.messages.append(result)
             return new_state
 

@@ -22,7 +22,7 @@ Processing Rules:
              Few-shot example, both "my birthday is 1991.10.19" or "I was born on 1991.10.19" should be mapped to "passenger_birthday". 
              Or another example: both "I want to leave on March 5th" or "I fly on March 5th" should be mapped to "departure_date". 
              The same applies to all other fields: ticket_number, departure_airport, arrival_airport, return_date, adult_passengers, passenger_name.
-2. If you mapped departure_date or return_data: Convert any format to yymmdd (e.g. "March 5th" → 240305)
+2. If you mapped departure_date or return_data: Convert any format to yymmdd, if year is not mentioned, you should default the year to be this year (e.g. "March 5th" → 250305)
 3. If you mapped departure_airport or arrival_airport:
    - If city name is given (e.g. "I leave from New York") in user's input, provide all airport IATA code for New York  in "response" to user and ask user to specify airport code.
    - Accept only valid IATA codes (e.g. JFK), you as a flight ticketing specialist should check that in your memory.
@@ -30,7 +30,7 @@ Processing Rules:
 5. If you mapped adult_passengers: Convert any format to number (e.g. "two" → 2, or "a couple" → 2, or "I am alone" → 1)
 6. If you mapped passenger_name: Extract the full name from the user's input, and make sure it is in the format of "First Last".
 7. If you mapped passenger_birthday: Convert any format to ddmmyyyy (e.g. "1991.10.19" → 19101991)
-8. If you are not sure about the mapping, please ask the user for clarification in "response" and DO NOT GUESS.
+8. If you are not sure about the mapping, or data is cannot be converted to required format, please ask the user for clarification in "response" and DO NOT GUESS or input wrong format.
 9. If multiple fields are provided in one message, process all simultaneously
 10. **Output MUST be in valid JSON format. Do NOT return plain text.**
 11. If no valid info found, politely ask for specific missing fields in "response" and do not change "collected_info" and "missing_info", but still return the response in JSON format.
@@ -54,7 +54,7 @@ for example, if the user says "my ticket number is ABC1234567890", the ticket_nu
             | self.parser
         )
 
-    async def process(self, state: MessageState) -> MessageState:
+    def process(self, state: MessageState) -> MessageState:
         print("===Info collection node BEGIN===")
         new_state = state.model_copy(deep=True)
         new_state.log_state()  
@@ -63,10 +63,11 @@ for example, if the user says "my ticket number is ABC1234567890", the ticket_nu
         # 执行处理
         try:
             try:
-                result = await self.chain.ainvoke({
+                last2_messages = new_state.messages[-2:] if len(new_state.messages) >= 2 else new_state.messages
+                result = self.chain.invoke({
                     "collected_info": new_state.collected_info,
                     "missing_info": new_state.missing_info,
-                    "input": new_state.messages
+                    "input": last2_messages
                 })
                 print(f"LLM 输出: {result}")
                 if not isinstance(result, dict):

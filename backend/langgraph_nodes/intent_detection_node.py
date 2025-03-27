@@ -20,12 +20,12 @@ As a flight ticketing specialist, analyze the conversation history and:
 
 2. **Response Generation**:
 
-A) For "search flight" intent:
-   - List SPECIFIC missing fields from: [departure_date, return_date, adult_passengers, departure_airport, arrival_airport]
+A) For "search_flight" intent:
+   - missing_info should be: ["departure_date", "return_date", "adult_passengers", "departure_airport", "arrival_airport"], it cannot be empty
    - Generate NATURAL request for missing info using conversation context
 
-B) For "flight change" intent:
-   - List SPECIFIC missing fields from: [ticket_number, passenger_birthday, passenger_name]
+B) For "flight_change" intent:
+   - missing_info should be: ["ticket_number", "passenger_birthday", "passenger_name"], it cannot be empty
    - Generate NATURAL request for missing info using conversation context
 
 C) For other intents:
@@ -58,11 +58,17 @@ C) For other intents:
             # 解析 JSON
             data = json.loads(text)
             # 验证并返回结构化数据
-            if data.get("intent_info") == Search_Flight or data.get("intent_info") == Flight_Change:
+            if data.get("intent_info") == Search_Flight:
                 return {
                     "intent_info": data.get("intent_info", Other_Intent),
                     "content": data.get("content", ""),
-                    "missing_info": data.get("missing_info", [])
+                    "missing_info": ["departure_date", "return_date", "adult_passengers", "departure_airport", "arrival_airport"]
+                }
+            elif data.get("intent_info") == Flight_Change:
+                return {
+                    "intent_info": data.get("intent_info", Other_Intent),
+                    "content": data.get("content", ""),
+                    "missing_info": ["ticket_number", "passenger_birthday", "passenger_name"]
                 }
             else:
                 return {
@@ -77,7 +83,7 @@ C) For other intents:
                 "intent_info": Other_Intent
             }
 
-    async def process(self, state):
+    def process(self, state):
         print("===Intent Detection Begin===")
         if state.messages[-1]["sender"] != "user":
             return state  # 跳过系统消息
@@ -85,7 +91,7 @@ C) For other intents:
         messages = state.messages
         
         # 调用链并记录原始输出
-        raw_output = await self.chain.ainvoke({"messages": messages})
+        raw_output = self.chain.invoke({"messages": messages})
         
         # 确保结果包含所需的键
         if "intent_info" not in raw_output:
